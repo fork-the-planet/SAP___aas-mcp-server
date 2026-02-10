@@ -9,6 +9,8 @@ DEFAULT_ALLOWLIST: Set[Tuple[str, str]] = {
 # operations considered "writes"
 WRITE_METHODS = {"post", "put", "patch", "delete"}
 
+VALID_METHODS: Set[str] = {"get", "post", "put", "patch", "delete"}
+
 # Friendly aliases (optional, but strongly recommended)
 OPERATION_ID_ALIASES = {
     "GetAllAssetAdministrationShells": "list_shells",
@@ -25,7 +27,7 @@ def curate_openapi_spec(spec: Dict[str, Any], enable_writes: bool) -> Dict[str, 
         new_item: Dict[str, Any] = {}
         for method, op in (path_item or {}).items():
             m = method.lower()
-            if m not in {"get", "post", "put", "patch", "delete"}:
+            if m not in VALID_METHODS:
                 continue
 
             # 1) Allowlist filter (keeps tool surface stable)
