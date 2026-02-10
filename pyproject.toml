@@ -1,0 +1,19 @@
+[project]
+name = "aas-mcp-server"
+version = "0.1.0"
+description = "Open-source MCP server for AAS (Asset Administration Shell) APIs using OpenAPI"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "fastmcp>=3.0.0b2",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.26.0",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+aas-mcp-server = "aas_mcp_server.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

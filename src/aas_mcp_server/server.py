@@ -1,0 +1,30 @@
+from fastmcp import FastMCP
+from .openapi_loader import load_openapi_yaml
+from .http_client import build_async_client
+from .tool_curation import curate_openapi_spec
+from .logging import configure_logging
+
+def build_mcp_server(
+        base_url: str,
+        openapi_path: str,
+        enable_writes: bool,
+        log_level: str = "INFO",
+) -> FastMCP:
+    configure_logging(log_level)
+
+    spec = load_openapi_yaml(openapi_path)
+
+    # Curate tool surface area (rename, filter, readonly-by-default)
+    curated = curate_openapi_spec(spec, enable_writes=enable_writes)
+
+    client = build_async_client(base_url=base_url)
+
+    # FastMCP can generate an MCP server from OpenAPI directly
+    # (tools + schemas are derived from OpenAPI operations). :contentReference[oaicite:2]{index=2}
+    mcp = FastMCP.from_openapi(
+        openapi_spec=curated,
+        client=client,
+        name="AAS MCP Server",
+    )
+
+    return mcp
