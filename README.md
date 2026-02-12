@@ -110,7 +110,7 @@ The server supports optional path filtering and OpenAPI overlays to customize th
 
 ### Path Filtering
 
-Filter the OpenAPI spec to include only specific paths using environment variables:
+Filter the OpenAPI spec to include only specific paths and HTTP methods using environment variables:
 
 | Component | Environment Variable |
 |-----------|---------------------|
@@ -120,9 +120,23 @@ Filter the OpenAPI spec to include only specific paths using environment variabl
 | aas-registry | `AAS_REGISTRY_FILTER_PATHS` |
 | submodel-registry | `SUBMODEL_REGISTRY_FILTER_PATHS` |
 
-Example - expose only `/shells` endpoints:
+**Filter Format:**
+- `/path` - include all HTTP methods for this path
+- `/path:get` - include only GET method
+- `/path:get,post` - include GET and POST methods
+- Use semicolon (`;`) to separate multiple path filters
+
+**Examples:**
 ```bash
-export AAS_REPO_FILTER_PATHS="/shells,/shells/{aasIdentifier}"
+# Expose only GET /shells
+export AAS_REPO_FILTER_PATHS="/shells:get"
+
+# Expose GET and POST for /shells, only GET for /shells/{aasIdentifier}
+export AAS_REPO_FILTER_PATHS="/shells:get,post;/shells/{aasIdentifier}:get"
+
+# Expose all methods for multiple paths
+export AAS_REPO_FILTER_PATHS="/shells;/shells/{aasIdentifier}"
+
 aas-mcp-server --component aas-repo
 ```
 

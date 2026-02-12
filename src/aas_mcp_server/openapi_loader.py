@@ -2,11 +2,20 @@
 OpenAPI spec loader with support for path filtering and overlay application.
 
 Environment Variables (per component):
-    AAS_REPO_FILTER_PATHS: Comma-separated list of paths to include for aas-repo
-    SUBMODEL_REPO_FILTER_PATHS: Comma-separated list of paths to include for submodel-repo
-    CONCEPT_DESCRIPTION_REPO_FILTER_PATHS: Comma-separated list of paths for concept-description-repo
-    AAS_REGISTRY_FILTER_PATHS: Comma-separated list of paths to include for aas-registry
-    SUBMODEL_REGISTRY_FILTER_PATHS: Comma-separated list of paths to include for submodel-registry
+    AAS_REPO_FILTER_PATHS: Semicolon-separated list of path filters for aas-repo
+    SUBMODEL_REPO_FILTER_PATHS: Semicolon-separated list of path filters for submodel-repo
+    CONCEPT_DESCRIPTION_REPO_FILTER_PATHS: Semicolon-separated list of path filters for concept-description-repo
+    AAS_REGISTRY_FILTER_PATHS: Semicolon-separated list of path filters for aas-registry
+    SUBMODEL_REGISTRY_FILTER_PATHS: Semicolon-separated list of path filters for submodel-registry
+
+Path Filter Format:
+    - "/path" - include all HTTP methods for this path
+    - "/path:get" - include only GET method
+    - "/path:get,post" - include GET and POST methods
+    - Use semicolon (;) to separate multiple path filters
+
+    Examples:
+        AAS_REPO_FILTER_PATHS="/shells:get,post;/shells/{aasIdentifier}:get,put,delete"
 
 Overlay files are expected at: openapi/overlays/{component}-overlay.yaml
 """
@@ -36,23 +45,84 @@ def load_openapi_yaml(path: str) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def filter_paths(spec: dict[str, Any], include_paths: list[str]) -> dict[str, Any]:
+def parse_path_filter(filter_str: str) -> tuple[str, list[str] | None]:
     """
-    Filter OpenAPI spec to include only specified paths.
+    Parse a path filter string into path and methods.
+
+    Format: "/path:method1,method2" or "/path" (all methods)
+
+    Examples:
+        "/shells:get,post" -> ("/shells", ["get", "post"])
+        "/shells:get" -> ("/shells", ["get"])
+        "/shells" -> ("/shells", None)  # None means all methods
+
+    Args:
+        filter_str: Filter string like "/shells:get,post" or "/shells"
+
+    Returns:
+        Tuple of (path, methods) where methods is None for all methods
+    """
+    if ":" in filter_str:
+        path, methods_str = filter_str.rsplit(":", 1)
+        methods = [m.strip().lower() for m in methods_str.split(",") if m.strip()]
+        return path, methods if methods else None
+    return filter_str, None
+
+
+def filter_paths(spec: dict[str, Any], include_filters: list[str]) -> dict[str, Any]:
+    """
+    Filter OpenAPI spec to include only specified paths and methods.
 
     Args:
         spec: The OpenAPI specification dict
-        include_paths: List of paths to keep (e.g., ['/shells', '/shells/{aasIdentifier}'])
+        include_filters: List of path filters to keep
+            Format: "/path:method1,method2" or "/path" (all methods)
+            Examples:
+                - "/shells" - include all methods for /shells
+                - "/shells:get" - include only GET /shells
+                - "/shells:get,post" - include GET and POST /shells
 
     Returns:
-        A new spec with only the specified paths
+        A new spec with only the specified paths and methods
     """
     result = deepcopy(spec)
-    result["paths"] = {
-        path: definition
-        for path, definition in spec.get("paths", {}).items()
-        if path in include_paths
-    }
+
+    # Parse all filters into a dict: {path: set of methods or None}
+    path_methods: dict[str, set[str] | None] = {}
+    for filter_str in include_filters:
+        path, methods = parse_path_filter(filter_str)
+        if path not in path_methods:
+            path_methods[path] = set(methods) if methods else None
+        elif path_methods[path] is not None and methods is not None:
+            # Merge methods if both specify methods
+            path_methods[path].update(methods)
+        elif methods is None:
+            # If any filter says "all methods", use all methods
+            path_methods[path] = None
+
+    # Filter paths and methods
+    filtered_paths = {}
+    http_methods = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
+
+    for path, definition in spec.get("paths", {}).items():
+        if path not in path_methods:
+            continue
+
+        allowed_methods = path_methods[path]
+        if allowed_methods is None:
+            # Include all methods
+            filtered_paths[path] = definition
+        else:
+            # Include only specified methods
+            filtered_definition = {
+                key: value
+                for key, value in definition.items()
+                if key.lower() not in http_methods or key.lower() in allowed_methods
+            }
+            if any(k.lower() in http_methods for k in filtered_definition):
+                filtered_paths[path] = filtered_definition
+
+    result["paths"] = filtered_paths
     return result
 
 
@@ -81,7 +151,7 @@ def get_filter_paths_from_env(component_name: str) -> list[str] | None:
         component_name: Name of the component (e.g., 'aas-repo')
 
     Returns:
-        List of paths to include, or None if not set
+        List of path filters to include, or None if not set
     """
     env_var = COMPONENT_FILTER_ENV_VARS.get(component_name)
     if not env_var:
@@ -91,8 +161,8 @@ def get_filter_paths_from_env(component_name: str) -> list[str] | None:
     if not paths_str:
         return None
 
-    # Parse comma-separated paths, strip whitespace
-    return [p.strip() for p in paths_str.split(",") if p.strip()]
+    # Parse semicolon-separated path filters, strip whitespace
+    return [p.strip() for p in paths_str.split(";") if p.strip()]
 
 
 def load_and_process_openapi(
