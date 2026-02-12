@@ -1,0 +1,30 @@
+overlay: 1.0.0
+info:
+  title: AAS Repository MCP Extensions
+  version: 1.0.0
+
+actions:
+  # Example: Add MCP tool metadata to GET /shells
+  - target: "$.paths['/shells'].get"
+    update:
+      x-mcp-tool:
+        name: list_asset_administration_shells
+        description: Returns all Asset Administration Shells from the repository
+
+  # Example: Add MCP tool metadata to POST /shells
+  - target: "$.paths['/shells'].post"
+    update:
+      x-mcp-tool:
+        name: create_asset_administration_shell
+        description: Creates a new Asset Administration Shell
+
+  # Example: Add custom header parameter to all GET /shells requests
+  # - target: "$.paths['/shells'].get.parameters"
+  #   update:
+  #     - name: x-mcp-context
+  #       in: header
+  #       description: MCP context identifier
+  #       required: false
+  #       schema:
+  #         type: string
+

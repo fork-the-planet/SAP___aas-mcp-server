@@ -1,5 +1,5 @@
 from fastmcp import FastMCP
-from .openapi_loader import load_openapi_yaml
+from .openapi_loader import load_and_process_openapi
 from .http_client import build_async_client
 from .tool_curation import curate_openapi_spec
 from .logging import configure_logging
@@ -13,7 +13,8 @@ def build_mcp_server(
 ) -> FastMCP:
     configure_logging(log_level)
 
-    spec = load_openapi_yaml(openapi_path)
+    # Load spec with optional filtering (via env var) and overlay application
+    spec = load_and_process_openapi(openapi_path, component_name)
 
     # Curate tool surface area (rename, filter, readonly-by-default)
     curated = curate_openapi_spec(spec, enable_writes=enable_writes)

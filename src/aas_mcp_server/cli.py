@@ -5,24 +5,29 @@ from .server import build_mcp_server
 # Component-to-OpenAPI mapping
 COMPONENT_CONFIGS = {
     "aas-repo": {
-        "openapi": "openapi/aas-repo.yaml",
+        "openapi": "openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8080",
         "description": "AAS Repository - Manage Asset Administration Shells",
     },
     "submodel-repo": {
-        "openapi": "openapi/submodel-repo.yaml",
+        "openapi": "openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8081",
         "description": "Submodel Repository - Manage Submodels",
     },
     "concept-description-repo": {
-        "openapi": "openapi/concept-description-repo.yaml",
+        "openapi": "openapi/ConceptDescriptionRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8082",
         "description": "Concept Description Repository - Manage Concept Descriptions",
     },
     "aas-registry": {
-        "openapi": "openapi/aas-registry.yaml",
+        "openapi": "openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8083",
         "description": "AAS Registry - Discover and register AAS components",
+    },
+    "submodel-registry": {
+        "openapi": "openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
+        "default_url": "http://localhost:8084",
+        "description": "Submodel Registry - Discover and register Submodels",
     },
 }
 

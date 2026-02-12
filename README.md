@@ -104,6 +104,54 @@ Place your OpenAPI specifications in the `openapi/` directory:
 - `openapi/concept-description-repo.yaml` - Concept Description Repository spec
 - `openapi/aas-registry.yaml` - AAS Registry spec
 
+## Path Filtering & Overlays
+
+The server supports optional path filtering and OpenAPI overlays to customize the API surface per component.
+
+### Path Filtering
+
+Filter the OpenAPI spec to include only specific paths using environment variables:
+
+| Component | Environment Variable |
+|-----------|---------------------|
+| aas-repo | `AAS_REPO_FILTER_PATHS` |
+| submodel-repo | `SUBMODEL_REPO_FILTER_PATHS` |
+| concept-description-repo | `CONCEPT_DESCRIPTION_REPO_FILTER_PATHS` |
+| aas-registry | `AAS_REGISTRY_FILTER_PATHS` |
+| submodel-registry | `SUBMODEL_REGISTRY_FILTER_PATHS` |
+
+Example - expose only `/shells` endpoints:
+```bash
+export AAS_REPO_FILTER_PATHS="/shells,/shells/{aasIdentifier}"
+aas-mcp-server --component aas-repo
+```
+
+### OpenAPI Overlays
+
+Apply [OpenAPI Overlay](https://github.com/OAI/Overlay-Specification) files to add custom extensions or modify the spec. Place overlay files in `openapi/overlays/` with the naming convention `{component}-overlay.yaml`.
+
+Example overlay (`openapi/overlays/aas-repo-overlay.yaml`):
+```yaml
+overlay: 1.0.0
+info:
+  title: AAS Repository MCP Extensions
+  version: 1.0.0
+actions:
+  - target: "$.paths['/shells'].get"
+    update:
+      x-mcp-tool:
+        name: list_asset_administration_shells
+        description: Returns all Asset Administration Shells
+```
+
+### Processing Order
+
+1. Load the original OpenAPI spec
+2. If filter paths env var is set, filter to only those paths
+3. If overlay file exists, apply the overlay
+
+This allows you to create a minimal, customized API surface without modifying the original OpenAPI files.
+
 ## Development
 
 ```bash

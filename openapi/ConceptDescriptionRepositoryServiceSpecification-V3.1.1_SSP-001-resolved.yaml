@@ -1,7 +1,8 @@
 openapi: 3.0.3
 info:
-  title: DotAAS Part 2 | HTTP/REST | Asset Administration Shell Repository Service Specification
-  description: "The Full Profile of the Asset Administration Shell Repository Service Specification as part of the [Specification of the Asset Administration Shell: Part 2](https://industrialdigitaltwin.org/en/content-hub/aasspecifications).  \nCopyright: Industrial Digital Twin Association (IDTA) 2025"
+  title: DotAAS Part 2 | HTTP/REST | Concept Description Repository Service Specification
+  description: "The ConceptDescription Repository Service Specification as part of [Specification of the Asset Administration Shell: Part 2](https://industrialdigitaltwin.org/en/content-hub/aasspecifications).  \nCopyright: Industrial Digital Twin Association (IDTA) March 2023"
+  termsOfService: https://github.com/admin-shell-io/aas-specs-metamodel
   contact:
     name: Industrial Digital Twin Association (IDTA)
     email: info@idtwin.org
@@ -9,32 +10,37 @@ info:
     name: CC BY 4.0
     url: https://creativecommons.org/licenses/by/4.0/
   version: V3.1.1_SSP-001
-  x-profile-identifier: https://admin-shell.io/aas/API/3/1/AssetAdministrationShellRepositoryServiceSpecification/SSP-001
+  x-profile-identifier: https://admin-shell.io/aas/API/3/1/ConceptDescriptionRepositoryServiceSpecification/SSP-001
 servers:
 - url: https://admin-shell.io/api/v3/
 - url: https://example.com/
 paths:
-  /shells:
+  /concept-descriptions:
     get:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Returns all Asset Administration Shells
-      operationId: GetAllAssetAdministrationShells
+      - Concept Description Repository API
+      summary: Returns all Concept Descriptions
+      operationId: GetAllConceptDescriptions
       parameters:
-      - name: assetIds
+      - name: idShort
         in: query
-        description: "A list of specific Asset identifiers. Each Asset identifier is a base64-url-encoded [SpecificAssetId](https://api.swaggerhub.com/domains/Plattform_i40/Part1-MetaModel-Schemas/V3.1.1#/components/schemas/SpecificAssetId)"
+        description: The Concept Description’s IdShort
         required: false
         style: form
         explode: true
         schema:
-          type: array
-          example: ?assetIds=eyAibmFtZSI6ICJzb21lLWFzc2V0LWlkIiwgInZhbHVlIjogImh0dHA6Ly9leGFtcGxlLWNvbXBhbnkuY29tL215QXNzZXQiLCAiZXh0ZXJuYWxTdWJqZWN0SWQiOiB7ICJrZXlzIjogWyB7ICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIsICJ2YWx1ZSI6ICJodHRwOi8vZXhhbXBsZS1jb21wYW55LmNvbS9leGFtcGxlLWNvbXBhbnlzLWFzc2V0LWtleXMiIH0gXSwgInR5cGUiOiAiR2xvYmFsUmVmZXJlbmNlIiB9IH0&assetIds=eyAibmFtZSI6ICJzb21lLW90aGVyLWFzc2V0LWlkIiwgInZhbHVlIjogIjEyMzQ1QUJDIiwgImV4dGVybmFsU3ViamVjdElkIjogeyAia2V5cyI6IFsgeyAidHlwZSI6ICJHbG9iYWxSZWZlcmVuY2UiLCAidmFsdWUiOiAiaHR0cDovL215LW93bi1jb21wYW55LmNvbS9rZXlzIiB9IF0sICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIgfSB9
-          items:
-            type: string
-      - name: idShort
+          type: string
+      - name: isCaseOf
         in: query
-        description: The Asset Administration Shell’s IdShort
+        description: IsCaseOf reference (UTF8-BASE64-URL-encoded)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: dataSpecificationRef
+        in: query
+        description: DataSpecification reference (UTF8-BASE64-URL-encoded)
         required: false
         style: form
         explode: true
@@ -55,15 +61,13 @@ paths:
           type: string
       responses:
         "200":
-          description: Requested Asset Administration Shells
+          description: Requested Concept Descriptions
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GetAssetAdministrationShellsResult"
+                $ref: "#/components/schemas/GetConceptDescriptionsResult"
         "400":
           $ref: "#/components/responses/bad-request"
-        "401":
-          $ref: "#/components/responses/unauthorized"
         "403":
           $ref: "#/components/responses/forbidden"
         "500":
@@ -71,24 +75,25 @@ paths:
         default:
           $ref: "#/components/responses/default"
       x-semanticIds:
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShells/3/1
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShellsByAssetId/3/1
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShellsByIdShort/3/1
+      - https://admin-shell.io/aas/API/GetAllConceptDescriptions/3/1
+      - https://admin-shell.io/aas/API/GetAllConceptDescriptionsByIdShort/3/1
+      - https://admin-shell.io/aas/API/GetAllConceptDescriptionsByIsCaseOf/3/1
+      - https://admin-shell.io/aas/API/GetAllConceptDescriptionsByDataSpecificationReference/3/1
     post:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Creates a new Asset Administration Shell
-      operationId: PostAssetAdministrationShell
+      - Concept Description Repository API
+      summary: Creates a new Concept Description
+      operationId: PostConceptDescription
       requestBody:
-        description: Asset Administration Shell object
+        description: Concept Description object
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AssetAdministrationShell"
+              $ref: "#/components/schemas/ConceptDescription"
         required: true
       responses:
         "201":
-          description: Asset Administration Shell created successfully
+          description: Concept Description created successfully
           headers:
             Location:
               description: URL of the newly created resource
@@ -97,11 +102,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AssetAdministrationShell"
+                $ref: "#/components/schemas/ConceptDescription"
         "400":
           $ref: "#/components/responses/bad-request"
-        "401":
-          $ref: "#/components/responses/unauthorized"
         "403":
           $ref: "#/components/responses/forbidden"
         "409":
@@ -111,10 +114,196 @@ paths:
         default:
           $ref: "#/components/responses/default"
       x-semanticIds:
-      - https://admin-shell.io/aas/API/PostAssetAdministrationShell/3/1
+      - https://admin-shell.io/aas/API/PostConceptDescription/3/1
+  /concept-descriptions/{cdIdentifier}:
+    get:
+      tags:
+      - Concept Description Repository API
+      summary: Returns a specific Concept Description
+      operationId: GetConceptDescriptionById
+      parameters:
+      - name: cdIdentifier
+        in: path
+        description: The Concept Description’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Requested Concept Description
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConceptDescription"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        default:
+          $ref: "#/components/responses/default"
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetConceptDescriptionById/3/1
+    put:
+      tags:
+      - Concept Description Repository API
+      summary: Creates or updates an existing Concept Description
+      operationId: PutConceptDescriptionById
+      parameters:
+      - name: cdIdentifier
+        in: path
+        description: The Concept Description’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Concept Description object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConceptDescription"
+        required: true
+      responses:
+        "201":
+          description: Concept Description created successfully
+          headers:
+            Location:
+              description: URL of the newly created resource
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConceptDescription"
+        "204":
+          description: Concept Description updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        default:
+          $ref: "#/components/responses/default"
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/PutConceptDescriptionById/3/1
+    delete:
+      tags:
+      - Concept Description Repository API
+      summary: Deletes a Concept Description
+      operationId: DeleteConceptDescriptionById
+      parameters:
+      - name: cdIdentifier
+        in: path
+        description: The Concept Description’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: Concept Description deleted successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        default:
+          $ref: "#/components/responses/default"
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/DeleteConceptDescriptionById/3/1
+  /serialization:
+    get:
+      tags:
+      - Serialization API
+      summary: Returns an appropriate serialization based on the specified format (see SerializationFormat)
+      operationId: GenerateSerializationByIds
+      parameters:
+      - name: aasIds
+        in: query
+        description: The Asset Administration Shells' unique ids (UTF8-BASE64-URL-encoded)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+      - name: submodelIds
+        in: query
+        description: The Submodels' unique ids (UTF8-BASE64-URL-encoded)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+      - name: includeConceptDescriptions
+        in: query
+        description: Include Concept Descriptions?
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: boolean
+          default: true
+      responses:
+        "200":
+          description: Requested serialization based on SerializationFormat
+          content:
+            application/asset-administration-shell-package+xml:
+              schema:
+                type: string
+                description: AASX package
+                format: binary
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Environment"
+            application/xml:
+              schema:
+                $ref: "#/components/schemas/Environment"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        default:
+          $ref: "#/components/responses/default"
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GenerateSerializationByIds/3/1
+  /description:
+    get:
+      tags:
+      - Description API
+      summary: Returns the self-describing information of a network resource (ServiceDescription)
+      operationId: GetSelfDescription
+      responses:
+        "200":
+          description: Requested Description
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceDescription"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetSelfDescription/3/1
 components:
   schemas:
-    GetAssetAdministrationShellsResult:
+    GetConceptDescriptionsResult:
       allOf:
       - $ref: "#/components/schemas/PagedResult"
       - type: object
@@ -122,7 +311,7 @@ components:
           result:
             type: array
             items:
-              $ref: "#/components/schemas/AssetAdministrationShell"
+              $ref: "#/components/schemas/ConceptDescription"
     PagedResult:
       required:
       - paging_metadata
@@ -130,24 +319,18 @@ components:
       properties:
         paging_metadata:
           $ref: "#/components/schemas/PagedResult_paging_metadata"
-    AssetAdministrationShell:
+    ConceptDescription:
       allOf:
       - $ref: "#/components/schemas/Identifiable"
       - $ref: "#/components/schemas/HasDataSpecification"
-      - required:
-        - assetInformation
-        properties:
-          derivedFrom:
-            $ref: "#/components/schemas/Reference"
-          assetInformation:
-            $ref: "#/components/schemas/AssetInformation"
-          submodels:
+      - properties:
+          isCaseOf:
             minItems: 1
             type: array
             items:
               $ref: "#/components/schemas/Reference"
           modelType:
-            pattern: ^AssetAdministrationShell$
+            pattern: ^ConceptDescription$
     Identifiable:
       allOf:
       - $ref: "#/components/schemas/Referable"
@@ -555,6 +738,73 @@ components:
           type: boolean
         max:
           type: boolean
+    Result:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+    Message:
+      type: object
+      properties:
+        code:
+          maxLength: 32
+          minLength: 1
+          type: string
+        correlationId:
+          maxLength: 128
+          minLength: 1
+          type: string
+        messageType:
+          type: string
+          enum:
+          - Undefined
+          - Info
+          - Warning
+          - Error
+          - Exception
+        text:
+          type: string
+        timestamp:
+          pattern: "^-?(([1-9][0-9][0-9][0-9]+)|(0[0-9][0-9][0-9]))-((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[01]))T(((([01][0-9])|(2[0-3])):[0-5][0-9]:([0-5][0-9])(\\.[0-9]+)?)|24:00:00(\\.0+)?)(Z|\\+00:00|-00:00)$"
+          type: string
+    Environment:
+      type: object
+      properties:
+        assetAdministrationShells:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetAdministrationShell"
+        submodels:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/Submodel"
+        conceptDescriptions:
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ConceptDescription"
+    AssetAdministrationShell:
+      allOf:
+      - $ref: "#/components/schemas/Identifiable"
+      - $ref: "#/components/schemas/HasDataSpecification"
+      - required:
+        - assetInformation
+        properties:
+          derivedFrom:
+            $ref: "#/components/schemas/Reference"
+          assetInformation:
+            $ref: "#/components/schemas/AssetInformation"
+          submodels:
+            minItems: 1
+            type: array
+            items:
+              $ref: "#/components/schemas/Reference"
+          modelType:
+            pattern: ^AssetAdministrationShell$
     AssetInformation:
       required:
       - assetKind
@@ -622,46 +872,6 @@ components:
           - maxLength: 128
             minLength: 1
           - pattern: "^([!#$%&'*+\\-.^_`|~0-9a-zA-Z])+/([!#$%&'*+\\-.^_`|~0-9a-zA-Z])+([ \\t]*;[ \\t]*([!#$%&'*+\\-.^_`|~0-9a-zA-Z])+=(([!#$%&'*+\\-.^_`|~0-9a-zA-Z])+|\"(([\\t !#-\\[\\]-~]|[\\x80-\\xff])|\\\\([\\t !-~]|[\\x80-\\xff]))*\"))*$"
-    Result:
-      type: object
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: "#/components/schemas/Message"
-    Message:
-      type: object
-      properties:
-        code:
-          maxLength: 32
-          minLength: 1
-          type: string
-        correlationId:
-          maxLength: 128
-          minLength: 1
-          type: string
-        messageType:
-          type: string
-          enum:
-          - Undefined
-          - Info
-          - Warning
-          - Error
-          - Exception
-        text:
-          type: string
-        timestamp:
-          pattern: "^-?(([1-9][0-9][0-9][0-9]+)|(0[0-9][0-9][0-9]))-((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[01]))T(((([01][0-9])|(2[0-3])):[0-5][0-9]:([0-5][0-9])(\\.[0-9]+)?)|24:00:00(\\.0+)?)(Z|\\+00:00|-00:00)$"
-          type: string
-    GetReferencesResult:
-      allOf:
-      - $ref: "#/components/schemas/PagedResult"
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: "#/components/schemas/Reference"
     Submodel:
       allOf:
       - $ref: "#/components/schemas/Identifiable"
@@ -1034,384 +1244,6 @@ components:
       - SubmodelElement
       - SubmodelElementCollection
       - SubmodelElementList
-    SubmodelMetadata:
-      allOf:
-      - $ref: "#/components/schemas/Identifiable"
-      - $ref: "#/components/schemas/HasDataSpecification"
-      - $ref: "#/components/schemas/Qualifiable"
-      - $ref: "#/components/schemas/HasSemantics"
-      - $ref: "#/components/schemas/HasKind"
-    SubmodelValue:
-      type: object
-      description: The ValueOnly serialization (patternProperties and propertyNames will probably be supported with OpenApi 3.1). For the full description of the generic JSON validation schema see the ValueOnly-Serialization as defined in the 'Specification of the Asset Administration Shell - Part 2'.
-    PathItem:
-      pattern: "^(([A-Za-z][A-Za-z0-9_]+)|(\\[[0-9]+\\]))((\\.[A-Za-z][A-Za-z0-9_]+)|(\\[[0-9]+\\])){0,}$"
-      type: string
-    GetSubmodelElementsResult:
-      allOf:
-      - $ref: "#/components/schemas/PagedResult"
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: "#/components/schemas/SubmodelElement"
-    GetSubmodelElementsMetadataResult:
-      allOf:
-      - $ref: "#/components/schemas/PagedResult"
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: "#/components/schemas/SubmodelElementMetadata"
-    SubmodelElementMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-      oneOf:
-      - $ref: "#/components/schemas/BlobMetadata"
-      - $ref: "#/components/schemas/FileMetadata"
-      - $ref: "#/components/schemas/CapabilityMetadata"
-      - $ref: "#/components/schemas/EntityMetadata"
-      - $ref: "#/components/schemas/BasicEventElementMetadata"
-      - $ref: "#/components/schemas/MultiLanguagePropertyMetadata"
-      - $ref: "#/components/schemas/OperationMetadata"
-      - $ref: "#/components/schemas/PropertyMetadata"
-      - $ref: "#/components/schemas/RangeMetadata"
-      - $ref: "#/components/schemas/ReferenceElementMetadata"
-      - $ref: "#/components/schemas/AnnotatedRelationshipElementMetadata"
-      - $ref: "#/components/schemas/RelationshipElementMetadata"
-      - $ref: "#/components/schemas/SubmodelElementListMetadata"
-      - $ref: "#/components/schemas/SubmodelElementCollectionMetadata"
-    SubmodelElementAttributes:
-      allOf:
-      - $ref: "#/components/schemas/Referable"
-      - $ref: "#/components/schemas/HasDataSpecification"
-      - $ref: "#/components/schemas/HasSemantics"
-      - $ref: "#/components/schemas/Qualifiable"
-      - $ref: "#/components/schemas/HasKind"
-    BlobMetadata:
-      allOf:
-      - $ref: "#/components/schemas/Referable"
-      - $ref: "#/components/schemas/HasDataSpecification"
-      - $ref: "#/components/schemas/HasSemantics"
-      - $ref: "#/components/schemas/Qualifiable"
-      - $ref: "#/components/schemas/HasKind"
-    FileMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    CapabilityMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    EntityMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    BasicEventElementMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-      - properties:
-          direction:
-            $ref: "#/components/schemas/Direction"
-          state:
-            $ref: "#/components/schemas/StateOfEvent"
-          messageTopic:
-            maxLength: 255
-            type: string
-          messageBroker:
-            $ref: "#/components/schemas/Reference"
-          lastUpdate:
-            type: string
-          minInterval:
-            type: string
-          maxInterval:
-            type: string
-    MultiLanguagePropertyMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    OperationMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    PropertyMetadata:
-      properties:
-        valueType:
-          $ref: "#/components/schemas/DataTypeDefXsd"
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    RangeMetadata:
-      properties:
-        valueType:
-          $ref: "#/components/schemas/DataTypeDefXsd"
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    ReferenceElementMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    AnnotatedRelationshipElementMetadata:
-      allOf:
-      - $ref: "#/components/schemas/Referable"
-      - $ref: "#/components/schemas/HasDataSpecification"
-      - $ref: "#/components/schemas/HasSemantics"
-      - $ref: "#/components/schemas/Qualifiable"
-      - $ref: "#/components/schemas/HasKind"
-    RelationshipElementMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    SubmodelElementListMetadata:
-      properties:
-        orderRelevant:
-          type: boolean
-        semanticIdListElement:
-          $ref: "#/components/schemas/Reference"
-        typeValueListElement:
-          $ref: "#/components/schemas/ModelType"
-        valueTypeListElement:
-          $ref: "#/components/schemas/DataTypeDefXsd"
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    SubmodelElementCollectionMetadata:
-      allOf:
-      - $ref: "#/components/schemas/SubmodelElementAttributes"
-    GetSubmodelElementsValueResult:
-      allOf:
-      - $ref: "#/components/schemas/PagedResult"
-      - type: object
-        properties:
-          result:
-            type: object
-            description: "Since patternProperties and propertyNames are not supported by OpenApi yet, the ValueOnly serialization for this elements works with the key-attribute as the JSON-property name and the value-attribute as the corresponding value."
-    GetPathItemsResult:
-      allOf:
-      - $ref: "#/components/schemas/PagedResult"
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: "#/components/schemas/PathItem"
-    SubmodelElementValue:
-      oneOf:
-      - $ref: "#/components/schemas/BasicEventElementValue"
-      - $ref: "#/components/schemas/PropertyValue"
-      - $ref: "#/components/schemas/MultiLanguagePropertyValue"
-      - $ref: "#/components/schemas/BlobValue"
-      - $ref: "#/components/schemas/FileValue"
-      - $ref: "#/components/schemas/RangeValue"
-      - $ref: "#/components/schemas/ReferenceElementValue"
-      - $ref: "#/components/schemas/RelationshipElementValue"
-      - $ref: "#/components/schemas/AnnotatedRelationshipElementValue"
-      - $ref: "#/components/schemas/EntityValue"
-      - $ref: "#/components/schemas/SubmodelElementCollectionValue"
-      - $ref: "#/components/schemas/SubmodelElementListValue"
-    BasicEventElementValue:
-      required:
-      - observed
-      type: object
-      properties:
-        observed:
-          $ref: "#/components/schemas/ReferenceValue"
-    ReferenceValue:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ReferenceTypes"
-        keys:
-          type: array
-          items:
-            $ref: "#/components/schemas/Key"
-    PropertyValue:
-      oneOf:
-      - $ref: "#/components/schemas/StringValue"
-      - $ref: "#/components/schemas/NumberValue"
-      - $ref: "#/components/schemas/BooleanValue"
-    StringValue:
-      type: string
-    NumberValue:
-      type: number
-    BooleanValue:
-      type: boolean
-    MultiLanguagePropertyValue:
-      type: object
-      description: "Since patternProperties and propertyNames are not supported by OpenApi yet, the ValueOnly serialization for this elements works with the key-attribute as the JSON-property name and the value-attribute as the corresponding value."
-    BlobValue:
-      type: object
-      properties:
-        contentType:
-          maxLength: 128
-          minLength: 1
-          type: string
-        value:
-          minLength: 1
-          type: string
-    FileValue:
-      type: object
-      properties:
-        contentType:
-          maxLength: 128
-          minLength: 1
-          type: string
-        value:
-          maxLength: 2048
-          minLength: 1
-          type: string
-    RangeValue:
-      required:
-      - max
-      - min
-      type: object
-      properties:
-        max:
-          type: number
-        min:
-          type: number
-    ReferenceElementValue:
-      type: object
-      properties:
-        type:
-          $ref: "#/components/schemas/ReferenceTypes"
-        keys:
-          type: array
-          items:
-            $ref: "#/components/schemas/Key"
-    RelationshipElementValue:
-      type: object
-      properties:
-        first:
-          $ref: "#/components/schemas/ReferenceValue"
-        second:
-          $ref: "#/components/schemas/ReferenceValue"
-    AnnotatedRelationshipElementValue:
-      type: object
-      properties:
-        first:
-          $ref: "#/components/schemas/ReferenceValue"
-        second:
-          $ref: "#/components/schemas/ReferenceValue"
-        annotations:
-          $ref: "#/components/schemas/ValueOnly"
-    ValueOnly:
-      type: object
-      description: The ValueOnly serialization (patternProperties and propertyNames will probably be supported with OpenApi 3.1). For the full description of the generic JSON validation schema see the ValueOnly-Serialization as defined in the 'Specification of the Asset Administration Shell - Part 2'.
-    EntityValue:
-      type: object
-      properties:
-        entityType:
-          $ref: "#/components/schemas/EntityType"
-        globalAssetId:
-          maxLength: 2048
-          minLength: 1
-          pattern: "^([\\\\x09\\\\x0a\\\\x0d\\\\x20-\\\\ud7ff\\\\ue000-\\\\ufffd]|\\\\ud800[\\\\udc00-\\\\udfff]|[\\\\ud801-\\\\udbfe][\\\\udc00-\\\\udfff]|\\\\udbff[\\\\udc00-\\\\udfff])*$"
-          type: string
-        specificAssetIds:
-          type: array
-          items:
-            $ref: "#/components/schemas/SpecificAssetIdValue"
-        statements:
-          $ref: "#/components/schemas/ValueOnly"
-    SpecificAssetIdValue:
-      type: object
-      description: "Since patternProperties and propertyNames are not supported by OpenApi yet, the ValueOnly serialization for this elements works with the key-attribute as the JSON-property name and the value-attribute as the corresponding value."
-    SubmodelElementCollectionValue:
-      type: object
-      description: The ValueOnly serialization (patternProperties and propertyNames will probably be supported with OpenApi 3.1). For the full description of the generic JSON validation schema see the ValueOnly-Serialization as defined in the 'Specification of the Asset Administration Shell - Part 2'.
-    SubmodelElementListValue:
-      type: array
-      items:
-        $ref: "#/components/schemas/SubmodelElementValue"
-    OperationRequest:
-      type: object
-      properties:
-        inoutputArguments:
-          type: array
-          items:
-            $ref: "#/components/schemas/OperationVariable"
-        inputArguments:
-          type: array
-          items:
-            $ref: "#/components/schemas/OperationVariable"
-        clientTimeoutDuration:
-          pattern: ^(-?)P(?=.)((\d+)Y)?((\d+)M)?((\d+)D)?(T(?=.)((\d+)H)?((\d+)M)?(\d*(\.\d+)?S)?)?$
-          type: string
-    OperationResult:
-      type: object
-      allOf:
-      - $ref: "#/components/schemas/BaseOperationResult"
-      - properties:
-          inoutputArguments:
-            type: array
-            items:
-              $ref: "#/components/schemas/OperationVariable"
-          outputArguments:
-            type: array
-            items:
-              $ref: "#/components/schemas/OperationVariable"
-    BaseOperationResult:
-      allOf:
-      - $ref: "#/components/schemas/Result"
-      - properties:
-          executionState:
-            $ref: "#/components/schemas/ExecutionState"
-          success:
-            type: boolean
-    ExecutionState:
-      type: string
-      enum:
-      - Initiated
-      - Running
-      - Completed
-      - Canceled
-      - Failed
-      - Timeout
-    OperationRequestValueOnly:
-      required:
-      - clientTimeoutDuration
-      type: object
-      properties:
-        inoutputArguments:
-          $ref: "#/components/schemas/ValueOnly"
-        inputArguments:
-          $ref: "#/components/schemas/ValueOnly"
-        clientTimeoutDuration:
-          pattern: ^(-?)P(?=.)((\d+)Y)?((\d+)M)?((\d+)D)?(T(?=.)((\d+)H)?((\d+)M)?(\d*(\.\d+)?S)?)?$
-          type: string
-    OperationResultValueOnly:
-      type: object
-      allOf:
-      - $ref: "#/components/schemas/BaseOperationResult"
-      - properties:
-          inoutputArguments:
-            $ref: "#/components/schemas/ValueOnly"
-          outputArguments:
-            $ref: "#/components/schemas/ValueOnly"
-    Environment:
-      type: object
-      properties:
-        assetAdministrationShells:
-          minItems: 1
-          type: array
-          items:
-            $ref: "#/components/schemas/AssetAdministrationShell"
-        submodels:
-          minItems: 1
-          type: array
-          items:
-            $ref: "#/components/schemas/Submodel"
-        conceptDescriptions:
-          minItems: 1
-          type: array
-          items:
-            $ref: "#/components/schemas/ConceptDescription"
-    ConceptDescription:
-      allOf:
-      - $ref: "#/components/schemas/Identifiable"
-      - $ref: "#/components/schemas/HasDataSpecification"
-      - properties:
-          isCaseOf:
-            minItems: 1
-            type: array
-            items:
-              $ref: "#/components/schemas/Reference"
-          modelType:
-            pattern: ^ConceptDescription$
     ServiceDescription:
       type: object
       properties:
@@ -1429,22 +1261,6 @@ components:
             "https://admin-shell.io/aas/API/3/1/SubmodelRegistryServiceSpecification/SSP-002"
           ]
         }
-    assetinformation_thumbnail_body:
-      type: object
-      properties:
-        fileName:
-          type: string
-        file:
-          type: string
-          format: binary
-    idShortPath_attachment_body:
-      type: object
-      properties:
-        fileName:
-          type: string
-        file:
-          type: string
-          format: binary
     PagedResult_paging_metadata:
       type: object
       properties:
@@ -1454,12 +1270,6 @@ components:
   responses:
     bad-request:
       description: "Bad Request, e.g. the request parameters of the format of the request body is wrong."
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Result"
-    unauthorized:
-      description: "Unauthorized, e.g. the server refused the authorization attempt."
       content:
         application/json:
           schema:
@@ -1494,48 +1304,7 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Result"
-    no-content:
-      description: "No Content, request was successful but no content is returned"
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/AssetAdministrationShell"
-    accepted:
-      description: The server has accepted the request.
-      headers:
-        Location:
-          description: The URL where the client can find more information about the request.
-          schema:
-            type: string
-    found:
-      description: The target resource is available but at a different location.
-      headers:
-        Location:
-          description: The URL where the client can find the target resource.
-          schema:
-            type: string
   parameters:
-    AssetIds:
-      name: assetIds
-      in: query
-      description: "A list of specific Asset identifiers. Each Asset identifier is a base64-url-encoded [SpecificAssetId](https://api.swaggerhub.com/domains/Plattform_i40/Part1-MetaModel-Schemas/V3.1.1#/components/schemas/SpecificAssetId)"
-      required: false
-      style: form
-      explode: true
-      schema:
-        type: array
-        example: ?assetIds=eyAibmFtZSI6ICJzb21lLWFzc2V0LWlkIiwgInZhbHVlIjogImh0dHA6Ly9leGFtcGxlLWNvbXBhbnkuY29tL215QXNzZXQiLCAiZXh0ZXJuYWxTdWJqZWN0SWQiOiB7ICJrZXlzIjogWyB7ICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIsICJ2YWx1ZSI6ICJodHRwOi8vZXhhbXBsZS1jb21wYW55LmNvbS9leGFtcGxlLWNvbXBhbnlzLWFzc2V0LWtleXMiIH0gXSwgInR5cGUiOiAiR2xvYmFsUmVmZXJlbmNlIiB9IH0&assetIds=eyAibmFtZSI6ICJzb21lLW90aGVyLWFzc2V0LWlkIiwgInZhbHVlIjogIjEyMzQ1QUJDIiwgImV4dGVybmFsU3ViamVjdElkIjogeyAia2V5cyI6IFsgeyAidHlwZSI6ICJHbG9iYWxSZWZlcmVuY2UiLCAidmFsdWUiOiAiaHR0cDovL215LW93bi1jb21wYW55LmNvbS9rZXlzIiB9IF0sICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIgfSB9
-        items:
-          type: string
-    IdShort:
-      name: idShort
-      in: query
-      description: The Asset Administration Shell’s IdShort
-      required: false
-      style: form
-      explode: true
-      schema:
-        type: string
     Limit:
       name: limit
       in: query
@@ -1549,63 +1318,5 @@ components:
       in: query
       description: A server-generated identifier retrieved from pagingMetadata that specifies from which position the result listing should continue
       required: false
-      schema:
-        type: string
-    AssetAdministrationShellIdentifier:
-      name: aasIdentifier
-      in: path
-      description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-      required: true
-      style: simple
-      explode: false
-      schema:
-        type: string
-    SubmodelIdentifier:
-      name: submodelIdentifier
-      in: path
-      description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
-      required: true
-      style: simple
-      explode: false
-      schema:
-        type: string
-    Level:
-      name: level
-      in: query
-      description: Determines the structural depth of the respective resource content
-      required: false
-      schema:
-        type: string
-        default: deep
-        enum:
-        - deep
-        - core
-    Extent:
-      name: extent
-      in: query
-      description: Determines to which extent the resource is being serialized
-      required: false
-      schema:
-        type: string
-        default: withoutBlobValue
-        enum:
-        - withBlobValue
-        - withoutBlobValue
-    IdShortPath:
-      name: idShortPath
-      in: path
-      description: IdShort path to the submodel element (dot-separated)
-      required: true
-      style: simple
-      explode: false
-      schema:
-        type: string
-    HandleId:
-      name: handleId
-      in: path
-      description: The returned handle id of an operation’s asynchronous invocation used to request the current state of the operation’s execution (UTF8-BASE64-URL-encoded)
-      required: true
-      style: simple
-      explode: false
       schema:
         type: string
