@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info:
+  title: AAS Registry API
+  description: API for discovering and registering AAS components
+  version: 1.0.0
+servers:
+  - url: http://localhost:8083
+paths:
+  # TODO: Add your AAS Registry OpenAPI specification here
+  /shell-descriptors:
+    get:
+      summary: List all shell descriptors
+      operationId: listShellDescriptors
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+

@@ -9,6 +9,7 @@ def build_mcp_server(
         openapi_path: str,
         enable_writes: bool,
         log_level: str = "INFO",
+        component_name: str = "aas-repo",
 ) -> FastMCP:
     configure_logging(log_level)
 
@@ -24,7 +25,7 @@ def build_mcp_server(
     mcp = FastMCP.from_openapi(
         openapi_spec=curated,
         client=client,
-        name="AAS MCP Server",
+        name=f"AAS MCP Server ({component_name})",
     )
 
     return mcp
