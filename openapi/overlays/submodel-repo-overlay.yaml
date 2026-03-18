@@ -1,0 +1,135 @@
+overlay: 1.0.0
+info:
+  title: Submodel Repository Overlay
+  version: 1.0.0
+  description: Overlay to improve operationIds and descriptions for Submodel Repository operations
+
+actions:
+  # /submodels
+  - target: "$.paths['/submodels'].get"
+    update:
+      operationId: list_submodels
+      summary: List all Submodels
+      description: Retrieves all Submodels from the Submodel Repository
+
+  - target: "$.paths['/submodels'].post"
+    update:
+      operationId: create_submodel
+      summary: Create a new Submodel
+      description: Creates a new Submodel in the Submodel Repository
+
+  # /submodels/{submodelIdentifier}
+  - target: "$.paths['/submodels/{submodelIdentifier}'].get"
+    update:
+      operationId: get_submodel_by_id
+      summary: Get a Submodel by ID
+      description: Retrieves a specific Submodel by its identifier
+
+  - target: "$.paths['/submodels/{submodelIdentifier}'].put"
+    update:
+      operationId: update_submodel_by_id
+      summary: Update a Submodel by ID
+      description: Updates an existing Submodel by its identifier
+
+  - target: "$.paths['/submodels/{submodelIdentifier}'].delete"
+    update:
+      operationId: delete_submodel_by_id
+      summary: Delete a Submodel by ID
+      description: Deletes a Submodel by its identifier
+
+  # /submodels/{submodelIdentifier}/$metadata
+  - target: "$.paths['/submodels/{submodelIdentifier}/$metadata'].get"
+    update:
+      operationId: get_submodel_metadata
+      summary: Get Submodel metadata
+      description: Retrieves metadata for a Submodel (without value data)
+
+  # /submodels/{submodelIdentifier}/$value
+  - target: "$.paths['/submodels/{submodelIdentifier}/$value'].get"
+    update:
+      operationId: get_submodel_value
+      summary: Get Submodel value data
+      description: Retrieves only the value data of a Submodel
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/$value'].patch"
+    update:
+      operationId: patch_submodel_value
+      summary: Patch Submodel value data
+      description: Updates the value data of a Submodel
+
+  # /submodels/{submodelIdentifier}/submodel-elements
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements'].get"
+    update:
+      operationId: list_submodel_elements
+      summary: List Submodel elements
+      description: Retrieves all elements of a Submodel
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements'].post"
+    update:
+      operationId: create_submodel_element
+      summary: Create a Submodel element
+      description: Creates a new element in a Submodel
+
+  # /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}'].get"
+    update:
+      operationId: get_submodel_element_by_path
+      summary: Get a Submodel element by path
+      description: Retrieves a specific element of a Submodel by its idShort path
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}'].put"
+    update:
+      operationId: update_submodel_element_by_path
+      summary: Update a Submodel element by path
+      description: Updates an existing element of a Submodel by its idShort path
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}'].post"
+    update:
+      operationId: create_nested_submodel_element
+      summary: Create a nested Submodel element
+      description: Creates a new nested element within a SubmodelElementCollection or SubmodelElementList
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}'].delete"
+    update:
+      operationId: delete_submodel_element_by_path
+      summary: Delete a Submodel element by path
+      description: Deletes a specific element of a Submodel by its idShort path
+
+  # /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/$value
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/$value'].get"
+    update:
+      operationId: get_submodel_element_value
+      summary: Get Submodel element value
+      description: Retrieves only the value of a Submodel element
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/$value'].patch"
+    update:
+      operationId: patch_submodel_element_value
+      summary: Patch Submodel element value
+      description: Updates the value of a Submodel element
+
+  # /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment'].get"
+    update:
+      operationId: get_file_attachment
+      summary: Get file attachment
+      description: Downloads a file attachment from a File element
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment'].put"
+    update:
+      operationId: upload_file_attachment
+      summary: Upload file attachment
+      description: Uploads a file attachment to a File element
+
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment'].delete"
+    update:
+      operationId: delete_file_attachment
+      summary: Delete file attachment
+      description: Deletes a file attachment from a File element
+
+  # /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke
+  - target: "$.paths['/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke'].post"
+    update:
+      operationId: invoke_operation
+      summary: Invoke an operation
+      description: Synchronously invokes an Operation element and returns the result

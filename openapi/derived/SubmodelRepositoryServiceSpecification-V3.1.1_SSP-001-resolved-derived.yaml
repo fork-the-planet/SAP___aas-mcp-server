@@ -1,10 +1,8 @@
 openapi: 3.0.3
 info:
-  title: DotAAS Part 2 | HTTP/REST | Asset Administration Shell Repository Service
-    Specification
-  description: "The Full Profile of the Asset Administration Shell Repository Service\
-    \ Specification as part of the [Specification of the Asset Administration Shell:\
-    \ Part 2](https://industrialdigitaltwin.org/en/content-hub/aasspecifications).\
+  title: DotAAS Part 2 | HTTP/REST | Submodel Repository Service Specification
+  description: "The entire Submodel Repository Service Specification as part of the\
+    \ [Specification of the Asset Administration Shell: Part 2](https://industrialdigitaltwin.org/en/content-hub/aasspecifications).\
     \  \nCopyright: Industrial Digital Twin Association (IDTA) 2025"
   contact:
     name: Industrial Digital Twin Association (IDTA)
@@ -13,30 +11,25 @@ info:
     name: CC BY 4.0
     url: https://creativecommons.org/licenses/by/4.0/
   version: V3.1.1_SSP-001
-  x-profile-identifier: https://admin-shell.io/aas/API/3/1/AssetAdministrationShellRepositoryServiceSpecification/SSP-001
+  x-profile-identifier: https://admin-shell.io/aas/API/3/1/SubmodelRepositoryServiceSpecification/SSP-001
 servers:
 - url: https://admin-shell.io/api/v3/
 - url: https://example.com/
 paths:
-  /shells:
+  /submodels:
     get:
       tags:
-      - Asset Administration Shell Repository API
-      summary: List all Asset Administration Shells
-      operationId: list_shells
+      - Submodel Repository API
+      summary: List all Submodels
+      operationId: list_submodels
       parameters:
-      - name: assetIds
+      - name: semanticId
         in: query
-        description: A list of specific Asset identifiers. Each Asset identifier is
-          a base64-url-encoded [SpecificAssetId](https://api.swaggerhub.com/domains/Plattform_i40/Part1-MetaModel-Schemas/V3.1.1#/components/schemas/SpecificAssetId)
-        required: false
-        style: form
-        explode: true
+        description: The value of the semantic id reference (BASE64-URL-encoded)
         schema:
-          type: array
-          example: ?assetIds=eyAibmFtZSI6ICJzb21lLWFzc2V0LWlkIiwgInZhbHVlIjogImh0dHA6Ly9leGFtcGxlLWNvbXBhbnkuY29tL215QXNzZXQiLCAiZXh0ZXJuYWxTdWJqZWN0SWQiOiB7ICJrZXlzIjogWyB7ICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIsICJ2YWx1ZSI6ICJodHRwOi8vZXhhbXBsZS1jb21wYW55LmNvbS9leGFtcGxlLWNvbXBhbnlzLWFzc2V0LWtleXMiIH0gXSwgInR5cGUiOiAiR2xvYmFsUmVmZXJlbmNlIiB9IH0&assetIds=eyAibmFtZSI6ICJzb21lLW90aGVyLWFzc2V0LWlkIiwgInZhbHVlIjogIjEyMzQ1QUJDIiwgImV4dGVybmFsU3ViamVjdElkIjogeyAia2V5cyI6IFsgeyAidHlwZSI6ICJHbG9iYWxSZWZlcmVuY2UiLCAidmFsdWUiOiAiaHR0cDovL215LW93bi1jb21wYW55LmNvbS9rZXlzIiB9IF0sICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIgfSB9
-          items:
-            type: string
+          maxLength: 3072
+          minLength: 1
+          type: string
       - name: idShort
         in: query
         description: The Asset Administration Shell’s IdShort
@@ -59,13 +52,33 @@ paths:
         required: false
         schema:
           type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
       responses:
         '200':
-          description: Requested Asset Administration Shells
+          description: Requested Submodels
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetAssetAdministrationShellsResult'
+                $ref: '#/components/schemas/GetSubmodelsResult'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -77,25 +90,25 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShells/3/1
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShellsByAssetId/3/1
-      - https://admin-shell.io/aas/API/GetAllAssetAdministrationShellsByIdShort/3/1
-      description: Retrieves all Asset Administration Shells from the AAS Repository
+      - https://admin-shell.io/aas/API/GetAllSubmodels/3/1
+      - https://admin-shell.io/aas/API/GetAllSubmodelsBySemanticId/3/1
+      - https://admin-shell.io/aas/API/GetAllSubmodelsByIdShort/3/1
+      description: Retrieves all Submodels from the Submodel Repository
     post:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Create a new Asset Administration Shell
-      operationId: create_shell
+      - Submodel Repository API
+      summary: Create a new Submodel
+      operationId: create_submodel
       requestBody:
-        description: Asset Administration Shell object
+        description: Submodel object
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssetAdministrationShell'
+              $ref: '#/components/schemas/Submodel'
         required: true
       responses:
         '201':
-          description: Asset Administration Shell created successfully
+          description: Submodel created successfully
           headers:
             Location:
               description: URL of the newly created resource
@@ -104,7 +117,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssetAdministrationShell'
+                $ref: '#/components/schemas/Submodel'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -118,30 +131,50 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/PostAssetAdministrationShell/3/1
-      description: Creates a new Asset Administration Shell in the AAS Repository
-  /shells/{aasIdentifier}:
+      - https://admin-shell.io/aas/API/PostSubmodel/3/1
+      description: Creates a new Submodel in the Submodel Repository
+  /submodels/{submodelIdentifier}:
     get:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Get an AAS by ID
-      operationId: get_shell_by_id
+      - Submodel Repository API
+      summary: Get a Submodel by ID
+      operationId: get_submodel_by_id
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
         schema:
           type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
       responses:
         '200':
-          description: Requested Asset Administration Shell
+          description: Requested Submodel
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssetAdministrationShell'
+                $ref: '#/components/schemas/Submodel'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -155,32 +188,32 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/GetAssetAdministrationShellById/3/1
-      description: Retrieves a specific Asset Administration Shell by its identifier
+      - https://admin-shell.io/aas/API/GetSubmodelById/3/1
+      description: Retrieves a specific Submodel by its identifier
     put:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Update an AAS by ID
-      operationId: update_shell_by_id
+      - Submodel Repository API
+      summary: Update a Submodel by ID
+      operationId: update_submodel_by_id
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
         schema:
           type: string
       requestBody:
-        description: Asset Administration Shell object
+        description: Submodel object
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssetAdministrationShell'
+              $ref: '#/components/schemas/Submodel'
         required: true
       responses:
         '201':
-          description: Asset Administration Shell created successfully
+          description: Submodel created successfully
           headers:
             Location:
               description: URL of the newly created resource
@@ -189,9 +222,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AssetAdministrationShell'
+                $ref: '#/components/schemas/Submodel'
         '204':
-          description: Asset Administration Shell updated successfully
+          description: Submodel updated successfully
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -203,17 +236,17 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/PutAssetAdministrationShellById/3/1
-      description: Updates an existing Asset Administration Shell by its identifier
+      - https://admin-shell.io/aas/API/PutSubmodelById/3/1
+      description: Updates an existing Submodel by its identifier
     delete:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Delete an AAS by ID
-      operationId: delete_shell_by_id
+      - Submodel Repository API
+      summary: Delete a Submodel by ID
+      operationId: delete_submodel_by_id
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
@@ -221,50 +254,7 @@ paths:
           type: string
       responses:
         '204':
-          description: Asset Administration Shell deleted successfully
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          description: Not Found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Result'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        default:
-          description: Default error handling for unmentioned status codes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Result'
-      x-semanticIds:
-      - https://admin-shell.io/aas/API/DeleteAssetAdministrationShellById/3/1
-      description: Deletes an Asset Administration Shell by its identifier
-  /shells/{aasIdentifier}/asset-information:
-    get:
-      tags:
-      - Asset Administration Shell Repository API
-      summary: Get asset information for an AAS
-      operationId: get_asset_information
-      parameters:
-      - name: aasIdentifier
-        in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: Requested Asset Information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AssetInformation'
+          description: Submodel deleted successfully
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -278,33 +268,135 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/GetAssetInformation/3/1
-      description: Retrieves the AssetInformation of a specific Asset Administration
-        Shell
-    put:
+      - https://admin-shell.io/aas/API/DeleteSubmodelById/3/1
+      description: Deletes a Submodel by its identifier
+  /submodels/{submodelIdentifier}/$metadata:
+    get:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Update asset information for an AAS
-      operationId: update_asset_information
+      - Submodel Repository API
+      summary: Get Submodel metadata
+      operationId: get_submodel_metadata
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
         schema:
           type: string
+      responses:
+        '200':
+          description: Requested Submodel in the metadata representation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelMetadata'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetSubmodelById/3/1
+      description: Retrieves metadata for a Submodel (without value data)
+  /submodels/{submodelIdentifier}/$value:
+    get:
+      tags:
+      - Submodel Repository API
+      summary: Get Submodel value data
+      operationId: get_submodel_value
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
+      responses:
+        '200':
+          description: Requested Submodel
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelValue'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetSubmodelById/3/1
+      description: Retrieves only the value data of a Submodel
+    patch:
+      tags:
+      - Submodel Repository API
+      summary: Patch Submodel value data
+      operationId: patch_submodel_value
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - core
+          default: core
       requestBody:
-        description: Asset Information object
+        description: Submodel object in its ValueOnly representation
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssetInformation'
+              $ref: '#/components/schemas/SubmodelValue'
         required: true
       responses:
         '204':
-          description: Asset Information updated successfully
+          description: Submodel updated successfully
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -318,134 +410,18 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/PutAssetInformation/3/1
-      description: Updates the AssetInformation of a specific Asset Administration
-        Shell
-  /shells/{aasIdentifier}/asset-information/thumbnail:
+      - https://admin-shell.io/aas/API/PatchSubmodelById/3/1
+      description: Updates the value data of a Submodel
+  /submodels/{submodelIdentifier}/submodel-elements:
     get:
       tags:
-      - Asset Administration Shell Repository API
-      operationId: get_thumbnail
+      - Submodel Repository API
+      summary: List Submodel elements
+      operationId: list_submodel_elements
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: The thumbnail of the Asset Information.
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        default:
-          $ref: '#/components/responses/default'
-      x-semanticIds:
-      - https://admin-shell.io/aas/API/GetThumbnail/3/1
-      summary: Get asset thumbnail image
-      description: Downloads the thumbnail image of an Asset Administration Shell
-    put:
-      tags:
-      - Asset Administration Shell Repository API
-      operationId: upload_thumbnail
-      parameters:
-      - name: aasIdentifier
-        in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      requestBody:
-        description: Thumbnail to upload
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/assetinformation_thumbnail_body'
-            encoding:
-              file:
-                contentType: application/octet-stream
-        required: true
-      responses:
-        '204':
-          description: Thumbnail updated successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        default:
-          $ref: '#/components/responses/default'
-      x-semanticIds:
-      - https://admin-shell.io/aas/API/PutThumbnail/3/1
-      summary: Upload asset thumbnail image
-      description: Uploads a thumbnail image for an Asset Administration Shell
-    delete:
-      tags:
-      - Asset Administration Shell Repository API
-      operationId: delete_thumbnail
-      parameters:
-      - name: aasIdentifier
-        in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      responses:
-        '200':
-          description: 'Thumbnail deletion successful.  Deprecated: Use response code
-            204 instead.'
-        '204':
-          $ref: '#/components/responses/no-content'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        default:
-          $ref: '#/components/responses/default'
-      x-semanticIds:
-      - https://admin-shell.io/aas/API/DeleteThumbnail/3/1
-      summary: Delete asset thumbnail image
-      description: Deletes the thumbnail image of an Asset Administration Shell
-  /shells/{aasIdentifier}/submodel-refs:
-    get:
-      tags:
-      - Asset Administration Shell Repository API
-      summary: List Submodel references
-      operationId: list_submodel_refs
-      parameters:
-      - name: aasIdentifier
-        in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
@@ -465,13 +441,33 @@ paths:
         required: false
         schema:
           type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
       responses:
         '200':
-          description: Requested submodel references
+          description: List of found submodel elements
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetReferencesResult'
+                $ref: '#/components/schemas/GetSubmodelElementsResult'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -483,35 +479,38 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
         default:
-          $ref: '#/components/responses/default'
+          description: Default error handling for unmentioned status codes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/GetAllSubmodelReferences/3/1
-      description: Retrieves all Submodel references of a specific Asset Administration
-        Shell
+      - https://admin-shell.io/aas/API/GetAllSubmodelElements/3/1
+      description: Retrieves all elements of a Submodel
     post:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Add a Submodel reference
-      operationId: add_submodel_ref
+      - Submodel Repository API
+      summary: Create a Submodel element
+      operationId: create_submodel_element
       parameters:
-      - name: aasIdentifier
+      - name: submodelIdentifier
         in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
         required: true
         style: simple
         explode: false
         schema:
           type: string
       requestBody:
-        description: Reference to the Submodel
+        description: Requested submodel element
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Reference'
+              $ref: '#/components/schemas/SubmodelElement'
         required: true
       responses:
         '201':
-          description: Submodel reference created successfully
+          description: Submodel element created successfully
           headers:
             Location:
               description: URL of the newly created resource
@@ -520,7 +519,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Reference'
+                $ref: '#/components/schemas/SubmodelElement'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -536,23 +535,15 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/PostSubmodelReference/3/1
-      description: Adds a Submodel reference to a specific Asset Administration Shell
-  /shells/{aasIdentifier}/submodel-refs/{submodelIdentifier}:
-    delete:
+      - https://admin-shell.io/aas/API/PostSubmodelElement/3/1
+      description: Creates a new element in a Submodel
+  /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}:
+    get:
       tags:
-      - Asset Administration Shell Repository API
-      summary: Remove a Submodel reference
-      operationId: remove_submodel_ref
+      - Submodel Repository API
+      summary: Get a Submodel element by path
+      operationId: get_submodel_element_by_path
       parameters:
-      - name: aasIdentifier
-        in: path
-        description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
       - name: submodelIdentifier
         in: path
         description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
@@ -561,9 +552,41 @@ paths:
         explode: false
         schema:
           type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
       responses:
-        '204':
-          description: Submodel reference deleted successfully
+        '200':
+          description: Requested submodel element
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelElement'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -577,12 +600,513 @@ paths:
         default:
           $ref: '#/components/responses/default'
       x-semanticIds:
-      - https://admin-shell.io/aas/API/DeleteSubmodelReference/3/1
-      description: Removes a Submodel reference from a specific Asset Administration
-        Shell
+      - https://admin-shell.io/aas/API/GetSubmodelElementByPath/3/1
+      description: Retrieves a specific element of a Submodel by its idShort path
+    put:
+      tags:
+      - Submodel Repository API
+      summary: Update a Submodel element by path
+      operationId: update_submodel_element_by_path
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          default: deep
+      requestBody:
+        description: Requested submodel element
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmodelElement'
+        required: true
+      responses:
+        '201':
+          description: Submodel element created successfully
+          headers:
+            Location:
+              description: URL of the newly created resource
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelElement'
+        '204':
+          description: Submodel element updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/PutSubmodelElementByPath/3/1
+      description: Updates an existing element of a Submodel by its idShort path
+    post:
+      tags:
+      - Submodel Repository API
+      summary: Create a nested Submodel element
+      operationId: create_nested_submodel_element
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Requested submodel element
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmodelElement'
+        required: true
+      responses:
+        '201':
+          description: Submodel element created successfully
+          headers:
+            Location:
+              description: URL of the newly created resource
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelElement'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '409':
+          $ref: '#/components/responses/conflict'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/PostSubmodelElementByPath/3/1
+      description: Creates a new nested element within a SubmodelElementCollection
+        or SubmodelElementList
+    delete:
+      tags:
+      - Submodel Repository API
+      summary: Delete a Submodel element by path
+      operationId: delete_submodel_element_by_path
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Submodel element deleted successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/DeleteSubmodelElementByPath/3/1
+      description: Deletes a specific element of a Submodel by its idShort path
+  /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/$value:
+    get:
+      tags:
+      - Submodel Repository API
+      summary: Get Submodel element value
+      operationId: get_submodel_element_value
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - deep
+          - core
+          default: deep
+      - name: extent
+        in: query
+        description: Determines to which extent the resource is being serialized
+        required: false
+        schema:
+          type: string
+          enum:
+          - withBlobValue
+          - withoutBlobValue
+          default: withoutBlobValue
+      responses:
+        '200':
+          description: Requested submodel element
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmodelElementValue'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetSubmodelElementByPath/3/1
+      description: Retrieves only the value of a Submodel element
+    patch:
+      tags:
+      - Submodel Repository API
+      summary: Patch Submodel element value
+      operationId: patch_submodel_element_value
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: level
+        in: query
+        description: Determines the structural depth of the respective resource content
+        required: false
+        schema:
+          type: string
+          enum:
+          - core
+          default: core
+      requestBody:
+        description: The SubmodelElement in its ValueOnly representation
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmodelElementValue'
+        required: true
+      responses:
+        '204':
+          description: Submodel updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/PatchSubmodelElementByPath/3/1
+      description: Updates the value of a Submodel element
+  /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment:
+    get:
+      tags:
+      - Submodel Repository API
+      summary: Get file attachment
+      operationId: get_file_attachment
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Requested file
+          headers:
+            Content-Disposition:
+              description: In order to physically download the file usually set to
+                attachment with a filename
+              schema:
+                type: string
+              example: attachment; filename="filename.jpg"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '405':
+          description: Method not allowed - Download only valid for File submodel
+            element
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/GetFileByPath/3/1
+      description: Downloads a file attachment from a File element
+    put:
+      tags:
+      - Submodel Repository API
+      summary: Upload file attachment
+      operationId: upload_file_attachment
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: File to upload
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/idShortPath_attachment_body'
+            encoding:
+              file:
+                contentType: application/octet-stream
+        required: true
+      responses:
+        '204':
+          description: Submodel element updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '405':
+          description: Method not allowed - Upload only valid for File submodel element
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/PutFileByPath/3/1
+      description: Uploads a file attachment to a File element
+    delete:
+      tags:
+      - Submodel Repository API
+      summary: Delete file attachment
+      operationId: delete_file_attachment
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Submodel element updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/DeleteFileByPath/3/1
+      description: Deletes a file attachment from a File element
+  /submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke:
+    post:
+      tags:
+      - Submodel Repository API
+      summary: Invoke an operation
+      operationId: invoke_operation
+      parameters:
+      - name: submodelIdentifier
+        in: path
+        description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idShortPath
+        in: path
+        description: IdShort path to the submodel element (dot-separated)
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        description: Operation request object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperationRequest'
+        required: true
+      responses:
+        '200':
+          description: Operation result object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '405':
+          description: Method not allowed - Invoke only valid for Operation submodel
+            element
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        default:
+          $ref: '#/components/responses/default'
+      x-semanticIds:
+      - https://admin-shell.io/aas/API/InvokeOperationSync/3/1
+      description: Synchronously invokes an Operation element and returns the result
 components:
   schemas:
-    GetAssetAdministrationShellsResult:
+    GetSubmodelsResult:
       allOf:
       - $ref: '#/components/schemas/PagedResult'
       - type: object
@@ -590,7 +1114,7 @@ components:
           result:
             type: array
             items:
-              $ref: '#/components/schemas/AssetAdministrationShell'
+              $ref: '#/components/schemas/Submodel'
     PagedResult:
       required:
       - paging_metadata
@@ -598,24 +1122,21 @@ components:
       properties:
         paging_metadata:
           $ref: '#/components/schemas/PagedResult_paging_metadata'
-    AssetAdministrationShell:
+    Submodel:
       allOf:
       - $ref: '#/components/schemas/Identifiable'
+      - $ref: '#/components/schemas/HasKind'
+      - $ref: '#/components/schemas/HasSemantics'
+      - $ref: '#/components/schemas/Qualifiable'
       - $ref: '#/components/schemas/HasDataSpecification'
-      - required:
-        - assetInformation
-        properties:
-          derivedFrom:
-            $ref: '#/components/schemas/Reference'
-          assetInformation:
-            $ref: '#/components/schemas/AssetInformation'
-          submodels:
+      - properties:
+          submodelElements:
             minItems: 1
             type: array
             items:
-              $ref: '#/components/schemas/Reference'
+              $ref: '#/components/schemas/SubmodelElement_choice'
           modelType:
-            pattern: ^AssetAdministrationShell$
+            pattern: ^Submodel$
     Identifiable:
       allOf:
       - $ref: '#/components/schemas/Referable'
@@ -1023,130 +1544,6 @@ components:
           type: boolean
         max:
           type: boolean
-    AssetInformation:
-      required:
-      - assetKind
-      type: object
-      properties:
-        assetKind:
-          $ref: '#/components/schemas/AssetKind'
-        globalAssetId:
-          maxLength: 2048
-          minLength: 1
-          pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
-          type: string
-        specificAssetIds:
-          minItems: 1
-          type: array
-          items:
-            $ref: '#/components/schemas/SpecificAssetId'
-        assetType:
-          maxLength: 2048
-          minLength: 1
-          pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
-          type: string
-        defaultThumbnail:
-          $ref: '#/components/schemas/Resource'
-    AssetKind:
-      type: string
-      enum:
-      - Instance
-      - NotApplicable
-      - Role
-      - Type
-    SpecificAssetId:
-      allOf:
-      - $ref: '#/components/schemas/HasSemantics'
-      - required:
-        - name
-        - value
-        properties:
-          name:
-            maxLength: 64
-            minLength: 1
-            pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
-            type: string
-          value:
-            maxLength: 2048
-            minLength: 1
-            pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
-            type: string
-          externalSubjectId:
-            $ref: '#/components/schemas/Reference'
-    Resource:
-      required:
-      - path
-      type: object
-      properties:
-        path:
-          type: string
-          allOf:
-          - maxLength: 2048
-            minLength: 1
-          - pattern: ^([a-zA-Z][a-zA-Z0-9+\-.]*:((//((((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;:&=+$,])*@)?((([a-zA-Z0-9]|[a-zA-Z0-9]([a-zA-Z0-9]|-)*[a-zA-Z0-9])\.)*([a-zA-Z]|[a-zA-Z]([a-zA-Z0-9]|-)*[a-zA-Z0-9])(\.)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)(:[0-9]*)?)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[$,;:@&=+])+)(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?|/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)(\?(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;?:@&=+$,])(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)|(//((((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;:&=+$,])*@)?((([a-zA-Z0-9]|[a-zA-Z0-9]([a-zA-Z0-9]|-)*[a-zA-Z0-9])\.)*([a-zA-Z]|[a-zA-Z]([a-zA-Z0-9]|-)*[a-zA-Z0-9])(\.)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)(:[0-9]*)?)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[$,;:@&=+])+)(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?|/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;@&=+$,])+(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?)(\?(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?)?(#(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?$
-        contentType:
-          type: string
-          allOf:
-          - maxLength: 128
-            minLength: 1
-          - pattern: ^([!#$%&'*+\-.^_`|~0-9a-zA-Z])+/([!#$%&'*+\-.^_`|~0-9a-zA-Z])+([
-              \t]*;[ \t]*([!#$%&'*+\-.^_`|~0-9a-zA-Z])+=(([!#$%&'*+\-.^_`|~0-9a-zA-Z])+|"(([\t
-              !#-\[\]-~]|[\x80-\xff])|\\([\t !-~]|[\x80-\xff]))*"))*$
-    Result:
-      type: object
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/Message'
-    Message:
-      type: object
-      properties:
-        code:
-          maxLength: 32
-          minLength: 1
-          type: string
-        correlationId:
-          maxLength: 128
-          minLength: 1
-          type: string
-        messageType:
-          type: string
-          enum:
-          - Undefined
-          - Info
-          - Warning
-          - Error
-          - Exception
-        text:
-          type: string
-        timestamp:
-          pattern: ^-?(([1-9][0-9][0-9][0-9]+)|(0[0-9][0-9][0-9]))-((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[01]))T(((([01][0-9])|(2[0-3])):[0-5][0-9]:([0-5][0-9])(\.[0-9]+)?)|24:00:00(\.0+)?)(Z|\+00:00|-00:00)$
-          type: string
-    GetReferencesResult:
-      allOf:
-      - $ref: '#/components/schemas/PagedResult'
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: '#/components/schemas/Reference'
-    Submodel:
-      allOf:
-      - $ref: '#/components/schemas/Identifiable'
-      - $ref: '#/components/schemas/HasKind'
-      - $ref: '#/components/schemas/HasSemantics'
-      - $ref: '#/components/schemas/Qualifiable'
-      - $ref: '#/components/schemas/HasDataSpecification'
-      - properties:
-          submodelElements:
-            minItems: 1
-            type: array
-            items:
-              $ref: '#/components/schemas/SubmodelElement_choice'
-          modelType:
-            pattern: ^Submodel$
     HasKind:
       type: object
       properties:
@@ -1428,6 +1825,25 @@ components:
       enum:
       - CoManagedEntity
       - SelfManagedEntity
+    SpecificAssetId:
+      allOf:
+      - $ref: '#/components/schemas/HasSemantics'
+      - required:
+        - name
+        - value
+        properties:
+          name:
+            maxLength: 64
+            minLength: 1
+            pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
+            type: string
+          value:
+            maxLength: 2048
+            minLength: 1
+            pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
+            type: string
+          externalSubjectId:
+            $ref: '#/components/schemas/Reference'
     Operation:
       allOf:
       - $ref: '#/components/schemas/SubmodelElement'
@@ -1508,6 +1924,46 @@ components:
       - SubmodelElement
       - SubmodelElementCollection
       - SubmodelElementList
+    Result:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+    Message:
+      type: object
+      properties:
+        code:
+          maxLength: 32
+          minLength: 1
+          type: string
+        correlationId:
+          maxLength: 128
+          minLength: 1
+          type: string
+        messageType:
+          type: string
+          enum:
+          - Undefined
+          - Info
+          - Warning
+          - Error
+          - Exception
+        text:
+          type: string
+        timestamp:
+          pattern: ^-?(([1-9][0-9][0-9][0-9]+)|(0[0-9][0-9][0-9]))-((0[1-9])|(1[0-2]))-((0[1-9])|([12][0-9])|(3[01]))T(((([01][0-9])|(2[0-3])):[0-5][0-9]:([0-5][0-9])(\.[0-9]+)?)|24:00:00(\.0+)?)(Z|\+00:00|-00:00)$
+          type: string
+    GetSubmodelsMetadataResult:
+      allOf:
+      - $ref: '#/components/schemas/PagedResult'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/SubmodelMetadata'
     SubmodelMetadata:
       allOf:
       - $ref: '#/components/schemas/Identifiable'
@@ -1515,12 +1971,37 @@ components:
       - $ref: '#/components/schemas/Qualifiable'
       - $ref: '#/components/schemas/HasSemantics'
       - $ref: '#/components/schemas/HasKind'
+    GetSubmodelsValueResult:
+      allOf:
+      - $ref: '#/components/schemas/PagedResult'
+      - type: object
+        properties:
+          result:
+            $ref: '#/components/schemas/SubmodelValue'
     SubmodelValue:
       type: object
       description: The ValueOnly serialization (patternProperties and propertyNames
         will probably be supported with OpenApi 3.1). For the full description of
         the generic JSON validation schema see the ValueOnly-Serialization as defined
         in the 'Specification of the Asset Administration Shell - Part 2'.
+    GetReferencesResult:
+      allOf:
+      - $ref: '#/components/schemas/PagedResult'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/Reference'
+    GetPathItemsResult:
+      allOf:
+      - $ref: '#/components/schemas/PagedResult'
+      - type: object
+        properties:
+          result:
+            type: array
+            items:
+              $ref: '#/components/schemas/PathItem'
     PathItem:
       pattern: ^(([A-Za-z][A-Za-z0-9_]+)|(\[[0-9]+\]))((\.[A-Za-z][A-Za-z0-9_]+)|(\[[0-9]+\])){0,}$
       type: string
@@ -1659,15 +2140,6 @@ components:
               by OpenApi yet, the ValueOnly serialization for this elements works
               with the key-attribute as the JSON-property name and the value-attribute
               as the corresponding value.
-    GetPathItemsResult:
-      allOf:
-      - $ref: '#/components/schemas/PagedResult'
-      - type: object
-        properties:
-          result:
-            type: array
-            items:
-              $ref: '#/components/schemas/PathItem'
     SubmodelElementValue:
       oneOf:
       - $ref: '#/components/schemas/BasicEventElementValue'
@@ -1892,6 +2364,74 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConceptDescription'
+    AssetAdministrationShell:
+      allOf:
+      - $ref: '#/components/schemas/Identifiable'
+      - $ref: '#/components/schemas/HasDataSpecification'
+      - required:
+        - assetInformation
+        properties:
+          derivedFrom:
+            $ref: '#/components/schemas/Reference'
+          assetInformation:
+            $ref: '#/components/schemas/AssetInformation'
+          submodels:
+            minItems: 1
+            type: array
+            items:
+              $ref: '#/components/schemas/Reference'
+          modelType:
+            pattern: ^AssetAdministrationShell$
+    AssetInformation:
+      required:
+      - assetKind
+      type: object
+      properties:
+        assetKind:
+          $ref: '#/components/schemas/AssetKind'
+        globalAssetId:
+          maxLength: 2048
+          minLength: 1
+          pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
+          type: string
+        specificAssetIds:
+          minItems: 1
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificAssetId'
+        assetType:
+          maxLength: 2048
+          minLength: 1
+          pattern: ^([\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd]|\ud800[\udc00-\udfff]|[\ud801-\udbfe][\udc00-\udfff]|\udbff[\udc00-\udfff])*$
+          type: string
+        defaultThumbnail:
+          $ref: '#/components/schemas/Resource'
+    AssetKind:
+      type: string
+      enum:
+      - Instance
+      - NotApplicable
+      - Role
+      - Type
+    Resource:
+      required:
+      - path
+      type: object
+      properties:
+        path:
+          type: string
+          allOf:
+          - maxLength: 2048
+            minLength: 1
+          - pattern: ^([a-zA-Z][a-zA-Z0-9+\-.]*:((//((((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;:&=+$,])*@)?((([a-zA-Z0-9]|[a-zA-Z0-9]([a-zA-Z0-9]|-)*[a-zA-Z0-9])\.)*([a-zA-Z]|[a-zA-Z]([a-zA-Z0-9]|-)*[a-zA-Z0-9])(\.)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)(:[0-9]*)?)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[$,;:@&=+])+)(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?|/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)(\?(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;?:@&=+$,])(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)|(//((((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;:&=+$,])*@)?((([a-zA-Z0-9]|[a-zA-Z0-9]([a-zA-Z0-9]|-)*[a-zA-Z0-9])\.)*([a-zA-Z]|[a-zA-Z]([a-zA-Z0-9]|-)*[a-zA-Z0-9])(\.)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)(:[0-9]*)?)?|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[$,;:@&=+])+)(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?|/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*|(([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[;@&=+$,])+(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*(/((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*(;((([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])|[:@&=+$,]))*)*)*)?)(\?(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?)?(#(([;/?:@&=+$,]|([a-zA-Z0-9]|[-_.!~*'()])|%([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])([0-9]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF]|[aA]|[bB]|[cC]|[dD]|[eE]|[fF])))*)?$
+        contentType:
+          type: string
+          allOf:
+          - maxLength: 128
+            minLength: 1
+          - pattern: ^([!#$%&'*+\-.^_`|~0-9a-zA-Z])+/([!#$%&'*+\-.^_`|~0-9a-zA-Z])+([
+              \t]*;[ \t]*([!#$%&'*+\-.^_`|~0-9a-zA-Z])+=(([!#$%&'*+\-.^_`|~0-9a-zA-Z])+|"(([\t
+              !#-\[\]-~]|[\x80-\xff])|\\([\t !-~]|[\x80-\xff]))*"))*$
     ConceptDescription:
       allOf:
       - $ref: '#/components/schemas/Identifiable'
@@ -1921,14 +2461,6 @@ components:
       example: "{\n  \"profiles\": [\n    \"https://admin-shell.io/aas/API/3/1/AssetAdministrationShellRegistryServiceSpecification/SSP-002\"\
         ,\n    \"https://admin-shell.io/aas/API/3/1/SubmodelRegistryServiceSpecification/SSP-002\"\
         \n  ]\n}"
-    assetinformation_thumbnail_body:
-      type: object
-      properties:
-        fileName:
-          type: string
-        file:
-          type: string
-          format: binary
     idShortPath_attachment_body:
       type: object
       properties:
@@ -1990,12 +2522,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Result'
-    no-content:
-      description: No Content, request was successful but no content is returned
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/AssetAdministrationShell'
     accepted:
       description: The server has accepted the request.
       headers:
@@ -2012,19 +2538,14 @@ components:
           schema:
             type: string
   parameters:
-    AssetIds:
-      name: assetIds
+    SemanticId:
+      name: semanticId
       in: query
-      description: A list of specific Asset identifiers. Each Asset identifier is
-        a base64-url-encoded [SpecificAssetId](https://api.swaggerhub.com/domains/Plattform_i40/Part1-MetaModel-Schemas/V3.1.1#/components/schemas/SpecificAssetId)
-      required: false
-      style: form
-      explode: true
+      description: The value of the semantic id reference (BASE64-URL-encoded)
       schema:
-        type: array
-        example: ?assetIds=eyAibmFtZSI6ICJzb21lLWFzc2V0LWlkIiwgInZhbHVlIjogImh0dHA6Ly9leGFtcGxlLWNvbXBhbnkuY29tL215QXNzZXQiLCAiZXh0ZXJuYWxTdWJqZWN0SWQiOiB7ICJrZXlzIjogWyB7ICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIsICJ2YWx1ZSI6ICJodHRwOi8vZXhhbXBsZS1jb21wYW55LmNvbS9leGFtcGxlLWNvbXBhbnlzLWFzc2V0LWtleXMiIH0gXSwgInR5cGUiOiAiR2xvYmFsUmVmZXJlbmNlIiB9IH0&assetIds=eyAibmFtZSI6ICJzb21lLW90aGVyLWFzc2V0LWlkIiwgInZhbHVlIjogIjEyMzQ1QUJDIiwgImV4dGVybmFsU3ViamVjdElkIjogeyAia2V5cyI6IFsgeyAidHlwZSI6ICJHbG9iYWxSZWZlcmVuY2UiLCAidmFsdWUiOiAiaHR0cDovL215LW93bi1jb21wYW55LmNvbS9rZXlzIiB9IF0sICJ0eXBlIjogIkdsb2JhbFJlZmVyZW5jZSIgfSB9
-        items:
-          type: string
+        maxLength: 3072
+        minLength: 1
+        type: string
     IdShort:
       name: idShort
       in: query
@@ -2050,24 +2571,6 @@ components:
       required: false
       schema:
         type: string
-    AssetAdministrationShellIdentifier:
-      name: aasIdentifier
-      in: path
-      description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
-      required: true
-      style: simple
-      explode: false
-      schema:
-        type: string
-    SubmodelIdentifier:
-      name: submodelIdentifier
-      in: path
-      description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
-      required: true
-      style: simple
-      explode: false
-      schema:
-        type: string
     Level:
       name: level
       in: query
@@ -2090,10 +2593,28 @@ components:
         - withBlobValue
         - withoutBlobValue
         default: withoutBlobValue
+    SubmodelIdentifier:
+      name: submodelIdentifier
+      in: path
+      description: The Submodel’s unique id (UTF8-BASE64-URL-encoded)
+      required: true
+      style: simple
+      explode: false
+      schema:
+        type: string
     IdShortPath:
       name: idShortPath
       in: path
       description: IdShort path to the submodel element (dot-separated)
+      required: true
+      style: simple
+      explode: false
+      schema:
+        type: string
+    AssetAdministrationShellIdentifier:
+      name: aasIdentifier
+      in: path
+      description: The Asset Administration Shell’s unique id (UTF8-BASE64-URL-encoded)
       required: true
       style: simple
       explode: false

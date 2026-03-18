@@ -4,7 +4,6 @@ OpenAPI spec loader with support for path filtering and overlay application.
 Environment Variables (per component):
     AAS_REPO_FILTER_PATHS: Semicolon-separated list of path filters for aas-repo
     SUBMODEL_REPO_FILTER_PATHS: Semicolon-separated list of path filters for submodel-repo
-    CONCEPT_DESCRIPTION_REPO_FILTER_PATHS: Semicolon-separated list of path filters for concept-description-repo
     AAS_REGISTRY_FILTER_PATHS: Semicolon-separated list of path filters for aas-registry
     SUBMODEL_REGISTRY_FILTER_PATHS: Semicolon-separated list of path filters for submodel-registry
 
@@ -33,7 +32,6 @@ from oas_patch import apply_overlay
 COMPONENT_FILTER_ENV_VARS = {
     "aas-repo": "AAS_REPO_FILTER_PATHS",
     "submodel-repo": "SUBMODEL_REPO_FILTER_PATHS",
-    "concept-description-repo": "CONCEPT_DESCRIPTION_REPO_FILTER_PATHS",
     "aas-registry": "AAS_REGISTRY_FILTER_PATHS",
     "submodel-registry": "SUBMODEL_REGISTRY_FILTER_PATHS",
 }

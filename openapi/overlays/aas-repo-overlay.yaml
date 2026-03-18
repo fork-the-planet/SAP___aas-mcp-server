@@ -1,18 +1,90 @@
 overlay: 1.0.0
 info:
-  title: AAS Repository MCP Extensions
+  title: AAS Repository Overlay
   version: 1.0.0
+  description: Overlay to improve operationIds and descriptions for AAS Repository operations
 
 actions:
-  # Rename operationId for GET /shells
+  # /shells
   - target: "$.paths['/shells'].get"
     update:
       operationId: list_shells
       summary: List all Asset Administration Shells
+      description: Retrieves all Asset Administration Shells from the AAS Repository
 
-  # Rename operationId for POST /shells
   - target: "$.paths['/shells'].post"
     update:
       operationId: create_shell
       summary: Create a new Asset Administration Shell
+      description: Creates a new Asset Administration Shell in the AAS Repository
 
+  # /shells/{aasIdentifier}
+  - target: "$.paths['/shells/{aasIdentifier}'].get"
+    update:
+      operationId: get_shell_by_id
+      summary: Get an AAS by ID
+      description: Retrieves a specific Asset Administration Shell by its identifier
+
+  - target: "$.paths['/shells/{aasIdentifier}'].put"
+    update:
+      operationId: update_shell_by_id
+      summary: Update an AAS by ID
+      description: Updates an existing Asset Administration Shell by its identifier
+
+  - target: "$.paths['/shells/{aasIdentifier}'].delete"
+    update:
+      operationId: delete_shell_by_id
+      summary: Delete an AAS by ID
+      description: Deletes an Asset Administration Shell by its identifier
+
+  # /shells/{aasIdentifier}/asset-information
+  - target: "$.paths['/shells/{aasIdentifier}/asset-information'].get"
+    update:
+      operationId: get_asset_information
+      summary: Get asset information for an AAS
+      description: Retrieves the AssetInformation of a specific Asset Administration Shell
+
+  - target: "$.paths['/shells/{aasIdentifier}/asset-information'].put"
+    update:
+      operationId: update_asset_information
+      summary: Update asset information for an AAS
+      description: Updates the AssetInformation of a specific Asset Administration Shell
+
+  # /shells/{aasIdentifier}/asset-information/thumbnail
+  - target: "$.paths['/shells/{aasIdentifier}/asset-information/thumbnail'].get"
+    update:
+      operationId: get_thumbnail
+      summary: Get asset thumbnail image
+      description: Downloads the thumbnail image of an Asset Administration Shell
+
+  - target: "$.paths['/shells/{aasIdentifier}/asset-information/thumbnail'].put"
+    update:
+      operationId: upload_thumbnail
+      summary: Upload asset thumbnail image
+      description: Uploads a thumbnail image for an Asset Administration Shell
+
+  - target: "$.paths['/shells/{aasIdentifier}/asset-information/thumbnail'].delete"
+    update:
+      operationId: delete_thumbnail
+      summary: Delete asset thumbnail image
+      description: Deletes the thumbnail image of an Asset Administration Shell
+
+  # /shells/{aasIdentifier}/submodel-refs
+  - target: "$.paths['/shells/{aasIdentifier}/submodel-refs'].get"
+    update:
+      operationId: list_submodel_refs
+      summary: List Submodel references
+      description: Retrieves all Submodel references of a specific Asset Administration Shell
+
+  - target: "$.paths['/shells/{aasIdentifier}/submodel-refs'].post"
+    update:
+      operationId: add_submodel_ref
+      summary: Add a Submodel reference
+      description: Adds a Submodel reference to a specific Asset Administration Shell
+
+  # /shells/{aasIdentifier}/submodel-refs/{submodelIdentifier}
+  - target: "$.paths['/shells/{aasIdentifier}/submodel-refs/{submodelIdentifier}'].delete"
+    update:
+      operationId: remove_submodel_ref
+      summary: Remove a Submodel reference
+      description: Removes a Submodel reference from a specific Asset Administration Shell

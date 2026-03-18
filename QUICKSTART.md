@@ -99,8 +99,8 @@ pip install aas-mcp-server
 |-----------|-------------|-------------|
 | `aas-repo` | 8080 | AAS Repository - Manage Asset Administration Shells |
 | `submodel-repo` | 8081 | Submodel Repository - Manage Submodels |
-| `concept-description-repo` | 8082 | Concept Description Repository |
 | `aas-registry` | 8083 | AAS Registry - Discovery and registration |
+| `submodel-registry` | 8084 | Submodel Registry - Discovery and registration |
 
 ## Common Commands
 
@@ -170,11 +170,11 @@ aas-mcp-server --component aas-repo --base-url http://localhost:8080
 # Terminal 2 - Submodel Repository
 aas-mcp-server --component submodel-repo --base-url http://localhost:8081
 
-# Terminal 3 - Concept Description Repository
-aas-mcp-server --component concept-description-repo --base-url http://localhost:8082
-
-# Terminal 4 - AAS Registry
+# Terminal 3 - AAS Registry
 aas-mcp-server --component aas-registry --base-url http://localhost:8083
+
+# Terminal 4 - Submodel Registry
+aas-mcp-server --component submodel-registry --base-url http://localhost:8084
 ```
 
 Or configure all in Claude Desktop to access all components simultaneously!

@@ -24,18 +24,6 @@
         "LOG_LEVEL": "INFO"
       }
     },
-    "concept-description-repo": {
-      "command": "aas-mcp-server",
-      "args": [
-        "--component",
-        "concept-description-repo",
-        "--base-url",
-        "http://localhost:8082"
-      ],
-      "env": {
-        "LOG_LEVEL": "INFO"
-      }
-    },
     "aas-registry": {
       "command": "aas-mcp-server",
       "args": [
@@ -47,7 +35,18 @@
       "env": {
         "LOG_LEVEL": "INFO"
       }
+    },
+    "submodel-registry": {
+      "command": "aas-mcp-server",
+      "args": [
+        "--component",
+        "submodel-registry",
+        "--base-url",
+        "http://localhost:8084"
+      ],
+      "env": {
+        "LOG_LEVEL": "INFO"
+      }
     }
   }
 }
-

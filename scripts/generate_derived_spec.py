@@ -52,7 +52,6 @@ from oas_patch import apply_overlay
 COMPONENT_SPECS = {
     "aas-repo": "openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
     "submodel-repo": "openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
-    "concept-description-repo": "openapi/ConceptDescriptionRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
     "aas-registry": "openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
     "submodel-registry": "openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
 }

@@ -5,19 +5,14 @@ from .server import build_mcp_server
 # Component-to-OpenAPI mapping
 COMPONENT_CONFIGS = {
     "aas-repo": {
-        "openapi": "openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
+        "openapi": "openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
         "default_url": "http://localhost:8080",
         "description": "AAS Repository - Manage Asset Administration Shells",
     },
     "submodel-repo": {
-        "openapi": "openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
+        "openapi": "openapi/derived/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
         "default_url": "http://localhost:8081",
         "description": "Submodel Repository - Manage Submodels",
-    },
-    "concept-description-repo": {
-        "openapi": "openapi/ConceptDescriptionRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
-        "default_url": "http://localhost:8082",
-        "description": "Concept Description Repository - Manage Concept Descriptions",
     },
     "aas-registry": {
         "openapi": "openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",

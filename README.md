@@ -6,8 +6,8 @@ It converts an OpenAPI spec into MCP tools and exposes a curated, safe-by-defaul
 This server supports multiple AAS components in a single monorepo:
 - **AAS Repository** - Manage Asset Administration Shells
 - **Submodel Repository** - Manage Submodels
-- **Concept Description Repository** - Manage Concept Descriptions
 - **AAS Registry** - Discover and register AAS components
+- **Submodel Registry** - Discover and register Submodels
 
 ## Install
 ```bash
@@ -28,14 +28,14 @@ aas-mcp-server --component aas-repo --base-url http://localhost:8080
 aas-mcp-server --component submodel-repo --base-url http://localhost:8081
 ```
 
-### Concept Description Repository
-```bash
-aas-mcp-server --component concept-description-repo --base-url http://localhost:8082
-```
-
 ### AAS Registry
 ```bash
 aas-mcp-server --component aas-registry --base-url http://localhost:8083
+```
+
+### Submodel Registry
+```bash
+aas-mcp-server --component submodel-registry --base-url http://localhost:8084
 ```
 
 ## Configuration
@@ -82,13 +82,13 @@ Add each component separately to your `claude_desktop_config.json`:
       "command": "aas-mcp-server",
       "args": ["--component", "submodel-repo", "--base-url", "http://localhost:8081"]
     },
-    "concept-description-repo": {
-      "command": "aas-mcp-server",
-      "args": ["--component", "concept-description-repo", "--base-url", "http://localhost:8082"]
-    },
     "aas-registry": {
       "command": "aas-mcp-server",
       "args": ["--component", "aas-registry", "--base-url", "http://localhost:8083"]
+    },
+    "submodel-registry": {
+      "command": "aas-mcp-server",
+      "args": ["--component", "submodel-registry", "--base-url", "http://localhost:8084"]
     }
   }
 }
@@ -98,11 +98,13 @@ This allows Claude to access all AAS components simultaneously, each with its ow
 
 ## OpenAPI Specifications
 
-Place your OpenAPI specifications in the `openapi/` directory:
-- `openapi/aas-repo.yaml` - AAS Repository spec
-- `openapi/submodel-repo.yaml` - Submodel Repository spec
-- `openapi/concept-description-repo.yaml` - Concept Description Repository spec
-- `openapi/aas-registry.yaml` - AAS Registry spec
+The server uses official AAS OpenAPI specifications (V3.1.1 SSP-001):
+- `openapi/AssetAdministrationShellRepositoryServiceSpecification-*.yaml` - AAS Repository
+- `openapi/SubmodelRepositoryServiceSpecification-*.yaml` - Submodel Repository
+- `openapi/AssetAdministrationShellRegistryServiceSpecification-*.yaml` - AAS Registry
+- `openapi/SubmodelRegistryServiceSpecification-*.yaml` - Submodel Registry
+
+**Derived Specs**: The AAS and Submodel Repository components use derived specs (in `openapi/derived/`) that are filtered to only include endpoints supported by Eclipse BaSyx. See `docs/basyx-repo-supported-endpoints.json` for details.
 
 ## Path Filtering & Overlays
 
@@ -116,7 +118,6 @@ Filter the OpenAPI spec to include only specific paths and HTTP methods using en
 |-----------|---------------------|
 | aas-repo | `AAS_REPO_FILTER_PATHS` |
 | submodel-repo | `SUBMODEL_REPO_FILTER_PATHS` |
-| concept-description-repo | `CONCEPT_DESCRIPTION_REPO_FILTER_PATHS` |
 | aas-registry | `AAS_REGISTRY_FILTER_PATHS` |
 | submodel-registry | `SUBMODEL_REGISTRY_FILTER_PATHS` |
 
