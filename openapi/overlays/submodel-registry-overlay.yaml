@@ -1,0 +1,45 @@
+overlay: 1.0.0
+info:
+  title: Submodel Registry Overlay
+  version: 1.0.0
+  description: Overlay to improve operationIds and descriptions for Submodel Registry operations
+
+actions:
+  # /description
+  - target: "$.paths['/description'].get"
+    update:
+      operationId: get_registry_description
+      summary: Get registry self-description
+      description: Retrieves the self-description of the Submodel Registry service
+
+  # /submodel-descriptors
+  - target: "$.paths['/submodel-descriptors'].get"
+    update:
+      operationId: list_submodel_descriptors
+      summary: List all Submodel descriptors
+      description: Retrieves all Submodel descriptors from the registry
+
+  - target: "$.paths['/submodel-descriptors'].post"
+    update:
+      operationId: register_submodel_descriptor
+      summary: Register a Submodel descriptor
+      description: Registers a new Submodel descriptor in the registry
+
+  # /submodel-descriptors/{submodelIdentifier}
+  - target: "$.paths['/submodel-descriptors/{submodelIdentifier}'].get"
+    update:
+      operationId: get_submodel_descriptor_by_id
+      summary: Get a Submodel descriptor by ID
+      description: Retrieves a specific Submodel descriptor by its identifier
+
+  - target: "$.paths['/submodel-descriptors/{submodelIdentifier}'].put"
+    update:
+      operationId: update_submodel_descriptor_by_id
+      summary: Update a Submodel descriptor by ID
+      description: Updates an existing Submodel descriptor by its identifier
+
+  - target: "$.paths['/submodel-descriptors/{submodelIdentifier}'].delete"
+    update:
+      operationId: unregister_submodel_descriptor_by_id
+      summary: Unregister a Submodel descriptor by ID
+      description: Removes a Submodel descriptor from the registry by its identifier

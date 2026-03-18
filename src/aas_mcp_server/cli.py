@@ -15,12 +15,12 @@ COMPONENT_CONFIGS = {
         "description": "Submodel Repository - Manage Submodels",
     },
     "aas-registry": {
-        "openapi": "openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
+        "openapi": "openapi/derived/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
         "default_url": "http://localhost:8083",
         "description": "AAS Registry - Discover and register AAS components",
     },
     "submodel-registry": {
-        "openapi": "openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
+        "openapi": "openapi/derived/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
         "default_url": "http://localhost:8084",
         "description": "Submodel Registry - Discover and register Submodels",
     },

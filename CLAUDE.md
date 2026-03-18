@@ -18,11 +18,11 @@ The server supports 4 AAS components, defined in `src/aas_mcp_server/cli.py:COMP
 4. **submodel-registry** - Submodel Registry (port 8084)
 
 Each component has:
-- Default OpenAPI spec path (derived specs in `openapi/derived/*.yaml` for repos, original specs for registries)
+- Default OpenAPI spec path (derived specs in `openapi/derived/*.yaml`)
 - Default base URL (localhost with component-specific port)
 - Description string
 
-**Note**: The AAS and Submodel Repository components use **derived OpenAPI specs** that are filtered to only include endpoints supported by the BaSyx implementation. See the "Derived Specs and BaSyx Filtering" section below for details.
+**Note**: All components now use **derived OpenAPI specs** that are filtered to only include endpoints supported by the Eclipse BaSyx implementation. See the "Derived Specs and BaSyx Filtering" section below for details.
 
 ## Core Processing Pipeline
 
@@ -55,13 +55,15 @@ Safety-focused transformations:
 
 ## Derived Specs and BaSyx Filtering
 
-The AAS and Submodel Repository components use **derived OpenAPI specifications** that are pre-filtered to only include endpoints actually supported by the Eclipse BaSyx implementation. This ensures the MCP server exposes a practical, working API surface rather than the full theoretical specification.
+All AAS components use **derived OpenAPI specifications** that are pre-filtered to only include endpoints actually supported by the Eclipse BaSyx implementation. This ensures the MCP server exposes a practical, working API surface rather than the full theoretical specification.
 
 ### Why Derived Specs?
 
 The official AAS OpenAPI specs (V3.1.1 SSP-001) define many endpoints that are not implemented by BaSyx:
 - **AAS Repo**: Official spec has 33 paths, BaSyx implements only 6 core paths
 - **Submodel Repo**: Official spec has 30 paths, BaSyx implements only 9 core paths
+- **AAS Registry**: Official spec has 5 paths, all are supported by BaSyx
+- **Submodel Registry**: Official spec has 3 paths, all are supported by BaSyx
 
 Using derived specs prevents LLMs from attempting to use unsupported endpoints.
 
@@ -73,7 +75,7 @@ Derived specs are generated using a two-step process:
    ```bash
    python3 scripts/generate_basyx_filters.py
    ```
-   This analyzes `docs/basyx-repo-supported-endpoints.json` and outputs filter path strings.
+   This analyzes BaSyx endpoint files in `docs/` and outputs filter path strings for all components.
 
 2. **Generate derived specs** using the filter strings:
    ```bash
@@ -83,13 +85,19 @@ Derived specs are generated using a two-step process:
 
    export SUBMODEL_REPO_FILTER_PATHS="<filter string>"
    python3 scripts/generate_derived_spec.py --component submodel-repo
+
+   export AAS_REGISTRY_FILTER_PATHS="<filter string>"
+   python3 scripts/generate_derived_spec.py --component aas-registry
+
+   export SUBMODEL_REGISTRY_FILTER_PATHS="<filter string>"
+   python3 scripts/generate_derived_spec.py --component submodel-registry
    ```
 
 Derived specs are written to `openapi/derived/` and include overlays automatically.
 
 ### BaSyx-Supported Endpoints
 
-**AAS Repository** (6 paths, 14 operations):
+**AAS Repository** (6 paths, 13 operations):
 - `/shells` - GET, POST
 - `/shells/{aasIdentifier}` - GET, PUT, DELETE
 - `/shells/{aasIdentifier}/asset-information` - GET, PUT
@@ -97,7 +105,7 @@ Derived specs are written to `openapi/derived/` and include overlays automatical
 - `/shells/{aasIdentifier}/submodel-refs` - GET, POST
 - `/shells/{aasIdentifier}/submodel-refs/{submodelIdentifier}` - DELETE
 
-**Submodel Repository** (9 paths, 22 operations):
+**Submodel Repository** (9 paths, 20 operations):
 - `/submodels` - GET, POST
 - `/submodels/{submodelIdentifier}` - GET, PUT, DELETE
 - `/submodels/{submodelIdentifier}/$metadata` - GET
@@ -108,7 +116,22 @@ Derived specs are written to `openapi/derived/` and include overlays automatical
 - `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment` - GET, PUT, DELETE
 - `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke` - POST
 
-The reference documentation is maintained in `docs/basyx-repo-supported-endpoints.json`.
+**AAS Registry** (5 paths, 11 operations):
+- `/description` - GET
+- `/shell-descriptors` - GET, POST
+- `/shell-descriptors/{aasIdentifier}` - GET, PUT, DELETE
+- `/shell-descriptors/{aasIdentifier}/submodel-descriptors` - GET, POST
+- `/shell-descriptors/{aasIdentifier}/submodel-descriptors/{submodelIdentifier}` - GET, PUT, DELETE
+
+**Submodel Registry** (3 paths, 7 operations):
+- `/description` - GET
+- `/submodel-descriptors` - GET, POST
+- `/submodel-descriptors/{submodelIdentifier}` - GET, PUT, DELETE
+
+The reference documentation is maintained in:
+- `docs/basyx-repo-supported-endpoints.json` (AAS and Submodel Repositories)
+- `docs/basyx-aas-registry-supported-endpoints.json` (AAS Registry)
+- `docs/basyx-submodel-registry-supported-endpoints.json` (Submodel Registry)
 
 ## Development Commands
 
