@@ -1,56 +1,136 @@
 # AAS MCP Server
 
-Open-source MCP server for Asset Administration Shell (AAS) APIs.
-It converts an OpenAPI spec into MCP tools and exposes a curated, safe-by-default surface.
+**OpenAPI-to-MCP adapter for Asset Administration Shell (AAS) APIs.**
 
-This server supports multiple AAS components in a single monorepo:
+This MCP server acts as a bridge between LLMs and your AAS backend server. It converts OpenAPI specifications into MCP tools, enabling LLMs to interact with AAS services through a safe, curated interface.
+
+**Pure Adapter Pattern**: This server doesn't bundle any AAS backend implementation. You provide your own AAS backend (BaSyx, FA³ST, custom, etc.), and this server translates LLM requests into HTTP calls to your backend.
+
+## Supported Components
+
 - **AAS Repository** - Manage Asset Administration Shells
 - **Submodel Repository** - Manage Submodels
 - **AAS Registry** - Discover and register AAS components
 - **Submodel Registry** - Discover and register Submodels
 
+## Prerequisites
+
+You need an AAS backend server running. Options:
+
+1. **Production**: Use your existing BaSyx, FA³ST, or custom AAS server
+2. **Development/Testing**: Start a reference backend with Docker Compose (see below)
+
 ## Install
+
 ```bash
 pip install aas-mcp-server
 ```
 
-## Usage
+## Quick Start
 
-The server requires a `--component` argument to specify which AAS component to serve:
+### With Existing AAS Backend
 
-### AAS Repository
+Point the MCP server to your backend URL:
+
 ```bash
+# AAS Repository
+aas-mcp-server --component aas-repo --base-url http://your-backend:8080
+
+# Submodel Repository
+aas-mcp-server --component submodel-repo --base-url http://your-backend:8081
+
+# AAS Registry
+aas-mcp-server --component aas-registry --base-url http://your-backend:8083
+
+# Submodel Registry
+aas-mcp-server --component submodel-registry --base-url http://your-backend:8084
+```
+
+### For Testing/Development
+
+Start a reference BaSyx backend with Docker Compose:
+
+```bash
+# Start BaSyx backend
+docker-compose up -d
+
+# Connect MCP server to it
 aas-mcp-server --component aas-repo --base-url http://localhost:8080
 ```
 
-### Submodel Repository
+## OpenAPI Specifications
+
+**By default**, the server uses the **official AAS OpenAPI specifications** (V3.1.1 SSP-001):
+- Full, unfiltered specs from IDTA/AAS standards
+- Located in `openapi/` directory
+- Works with any AAS-compliant backend
+
+**Example derived specs included**:
+- `openapi/derived/` contains pre-generated specs for **Eclipse BaSyx v2.0**
+- These are filtered to match what BaSyx actually implements
+- Use these as examples or for BaSyx deployments
+
+### Using Different Specifications
+
+**Option 1: Use Default (Official AAS Specs)**
 ```bash
-aas-mcp-server --component submodel-repo --base-url http://localhost:8081
+# No additional flags needed - uses official specs by default
+aas-mcp-server --component aas-repo --base-url http://your-backend:8080
 ```
 
-### AAS Registry
+**Option 2: Use BaSyx Example Specs**
 ```bash
-aas-mcp-server --component aas-registry --base-url http://localhost:8083
+# Use pre-generated BaSyx-specific spec
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://your-basyx:8080 \
+  --openapi openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml
 ```
 
-### Submodel Registry
-```bash
-aas-mcp-server --component submodel-registry --base-url http://localhost:8084
-```
+**Option 3: Generate Your Own Derived Specs**
+
+If your backend doesn't implement all official AAS endpoints, generate a filtered spec:
+
+1. **Document your implementation's endpoints**
+   ```bash
+   # Create docs/myimpl-endpoints.json with your supported endpoints
+   # (See docs/basyx-*-supported-endpoints.json for examples)
+   ```
+
+2. **Create configuration**
+   ```bash
+   cp configs/basyx-config.yaml configs/myimpl-config.yaml
+   # Edit to point to your implementation docs
+   ```
+
+3. **Generate derived specs**
+   ```bash
+   python3 scripts/generate_implementation.py --config configs/myimpl-config.yaml
+   ```
+
+4. **Use your generated spec**
+   ```bash
+   aas-mcp-server \
+     --component aas-repo \
+     --base-url http://your-backend:8080 \
+     --openapi openapi/derived/your-derived-spec.yaml
+   ```
+
+See `configs/README.md` for detailed instructions.
 
 ## Configuration
 
-Each component has default values that can be overridden:
-
 ### Command-line Arguments
+
 - `--component` (required): Which AAS component to serve
-- `--base-url`: Base URL for the component API (overrides component default)
-- `--openapi`: Custom OpenAPI spec path (overrides component default)
+- `--base-url` (required): URL of your AAS backend server
+- `--openapi`: Custom OpenAPI spec path (default: official AAS spec for component)
 - `--enable-writes`: Enable write operations (default: read-only)
 - `--log-level`: Logging level (default: INFO)
 - `--transport`: Transport protocol (default: stdio)
 
 ### Environment Variables
+
 - `AAS_BASE_URL`: Override the default base URL
 - `AAS_OPENAPI_PATH`: Override the default OpenAPI spec path
 - `AAS_MCP_ENABLE_WRITES`: Set to "1" to enable write operations
@@ -59,12 +139,15 @@ Each component has default values that can be overridden:
 
 ### Example: Enable Writes
 ```bash
-aas-mcp-server --component aas-repo --enable-writes
+aas-mcp-server --component aas-repo --base-url http://localhost:8080 --enable-writes
 ```
 
 ### Example: Custom OpenAPI Spec
 ```bash
-aas-mcp-server --component submodel-repo --openapi ./my-custom-spec.yaml
+aas-mcp-server \
+  --component submodel-repo \
+  --base-url http://localhost:8081 \
+  --openapi ./my-custom-spec.yaml
 ```
 
 ## Claude Desktop Configuration
@@ -76,19 +159,31 @@ Add each component separately to your `claude_desktop_config.json`:
   "mcpServers": {
     "aas-repo": {
       "command": "aas-mcp-server",
-      "args": ["--component", "aas-repo", "--base-url", "http://localhost:8080"]
+      "args": [
+        "--component", "aas-repo",
+        "--base-url", "http://localhost:8080"
+      ]
     },
     "submodel-repo": {
       "command": "aas-mcp-server",
-      "args": ["--component", "submodel-repo", "--base-url", "http://localhost:8081"]
+      "args": [
+        "--component", "submodel-repo",
+        "--base-url", "http://localhost:8081"
+      ]
     },
     "aas-registry": {
       "command": "aas-mcp-server",
-      "args": ["--component", "aas-registry", "--base-url", "http://localhost:8083"]
+      "args": [
+        "--component", "aas-registry",
+        "--base-url", "http://localhost:8083"
+      ]
     },
     "submodel-registry": {
       "command": "aas-mcp-server",
-      "args": ["--component", "submodel-registry", "--base-url", "http://localhost:8084"]
+      "args": [
+        "--component", "submodel-registry",
+        "--base-url", "http://localhost:8084"
+      ]
     }
   }
 }
@@ -96,19 +191,20 @@ Add each component separately to your `claude_desktop_config.json`:
 
 This allows Claude to access all AAS components simultaneously, each with its own dedicated tool set.
 
-## OpenAPI Specifications
+## Supported Implementations
 
-The server uses official AAS OpenAPI specifications (V3.1.1 SSP-001):
-- `openapi/AssetAdministrationShellRepositoryServiceSpecification-*.yaml` - AAS Repository
-- `openapi/SubmodelRepositoryServiceSpecification-*.yaml` - Submodel Repository
-- `openapi/AssetAdministrationShellRegistryServiceSpecification-*.yaml` - AAS Registry
-- `openapi/SubmodelRegistryServiceSpecification-*.yaml` - Submodel Registry
+**By default**: Works with any AAS-compliant backend (uses official specs)
 
-**Derived Specs**: The AAS and Submodel Repository components use derived specs (in `openapi/derived/`) that are filtered to only include endpoints supported by Eclipse BaSyx. See `docs/basyx-repo-supported-endpoints.json` for details.
+**Tested with**:
+- ✅ Eclipse BaSyx v2.0 (example derived specs included)
+- ✅ Custom implementations (generate your own specs)
 
-## Path Filtering & Overlays
+**Coming soon**:
+- FA³ST Service (example specs in development)
 
-The server supports optional path filtering and OpenAPI overlays to customize the API surface per component.
+## Advanced: Path Filtering & Overlays
+
+You can further customize the API surface at runtime using path filtering and overlays.
 
 ### Path Filtering
 
@@ -135,10 +231,7 @@ export AAS_REPO_FILTER_PATHS="/shells:get"
 # Expose GET and POST for /shells, only GET for /shells/{aasIdentifier}
 export AAS_REPO_FILTER_PATHS="/shells:get,post;/shells/{aasIdentifier}:get"
 
-# Expose all methods for multiple paths
-export AAS_REPO_FILTER_PATHS="/shells;/shells/{aasIdentifier}"
-
-aas-mcp-server --component aas-repo
+aas-mcp-server --component aas-repo --base-url http://localhost:8080
 ```
 
 ### OpenAPI Overlays
@@ -154,25 +247,133 @@ info:
 actions:
   - target: "$.paths['/shells'].get"
     update:
-      x-mcp-tool:
-        name: list_asset_administration_shells
-        description: Returns all Asset Administration Shells
+      operationId: list_shells
+      summary: List all Asset Administration Shells
 ```
 
-### Processing Order
+## Architecture
 
-1. Load the original OpenAPI spec
-2. If filter paths env var is set, filter to only those paths
-3. If overlay file exists, apply the overlay
+This server is a **pure adapter**:
 
-This allows you to create a minimal, customized API surface without modifying the original OpenAPI files.
+```
+┌─────────┐     MCP      ┌──────────────┐    HTTP     ┌────────────────┐
+│   LLM   │ ◄────────► │ AAS MCP      │ ◄─────── │ Your AAS       │
+│ (Claude)│             │ Server       │           │ Backend        │
+└─────────┘             │ (This Repo)  │           │ (BaSyx/FA³ST)  │
+                        └──────────────┘           └────────────────┘
+```
+
+**What this server does**:
+- Translates MCP protocol ↔ OpenAPI/HTTP
+- Applies safety rules (read-only by default, allowlists)
+- Provides derived specs for common implementations
+
+**What this server doesn't do**:
+- Run AAS backend (you provide that)
+- Store AAS data (your backend does that)
+- Implement AAS business logic (your backend does that)
 
 ## Development
 
 ```bash
-# Install dependencies
+# Install in editable mode
 pip install -e .
 
-# Run a specific component
-aas-mcp-server --component aas-repo --log-level DEBUG
+# Run with debug logging
+aas-mcp-server --component aas-repo --base-url http://localhost:8080 --log-level DEBUG
+
+# Run tests
+pytest
+
+# Generate derived specs for new implementation
+python3 scripts/generate_implementation.py --config configs/your-config.yaml
+
+# Validate derived specs
+python3 scripts/validate_derived_specs.py
 ```
+
+## Project Structure
+
+```
+aas-mcp-server/
+├── src/aas_mcp_server/          # MCP server adapter code
+├── openapi/                      # OpenAPI specifications
+│   ├── *.yaml                   # Official AAS specs (default)
+│   ├── derived/                 # Example derived specs (BaSyx)
+│   └── overlays/                # Example overlays
+├── configs/                      # Implementation configurations
+│   ├── basyx-config.yaml        # BaSyx example
+│   └── README.md                # How to create custom configs
+├── scripts/                      # Spec generation tools
+│   ├── generate_implementation.py   # One-command spec generation
+│   ├── generate_filters.py          # Compute endpoint intersections
+│   ├── generate_derived_spec.py     # Apply filters + overlays
+│   └── validate_derived_specs.py    # Validate specs are up-to-date
+├── docs/                         # Implementation endpoint documentation
+└── docker-compose.yaml          # Reference backend (testing only)
+```
+
+## Quick Reference
+
+### Common Use Cases
+
+**Use Case 1: Production with existing AAS backend (any implementation)**
+```bash
+# Uses default official AAS specs (works with any compliant backend)
+aas-mcp-server --component aas-repo --base-url http://your-backend:8080
+```
+
+**Use Case 2: Production with BaSyx backend (optimized)**
+```bash
+# Uses BaSyx-specific derived spec (filtered to BaSyx-supported endpoints)
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://your-basyx:8080 \
+  --openapi openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml
+```
+
+**Use Case 3: Custom backend (generate your own spec)**
+```bash
+# 1. Document your endpoints: docs/myimpl-endpoints.json
+# 2. Create config: configs/myimpl-config.yaml
+# 3. Generate specs:
+python3 scripts/generate_implementation.py --config configs/myimpl-config.yaml
+
+# 4. Use generated spec:
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://your-backend:8080 \
+  --openapi openapi/derived/your-derived-spec.yaml
+```
+
+**Use Case 4: Development/Testing (no backend yet)**
+```bash
+# Start reference BaSyx backend
+docker-compose up -d
+
+# Connect MCP server
+aas-mcp-server --component aas-repo --base-url http://localhost:8080
+```
+
+### Key Files
+
+| File/Directory | Purpose |
+|----------------|---------|
+| `openapi/*.yaml` | Official AAS specs (default) |
+| `openapi/derived/` | Example derived specs for BaSyx |
+| `configs/basyx-config.yaml` | Example configuration for generating specs |
+| `scripts/generate_implementation.py` | One-command spec generation |
+| `docker-compose.yaml` | Reference backend for testing |
+
+## License
+
+[Your License Here]
+
+## Contributing
+
+Contributions welcome! To add support for a new AAS implementation:
+
+1. Document the implementation's supported endpoints in `docs/`
+2. Create a configuration in `configs/`
+3. Generate derived specs with `scripts/generate_implementation.py`
+4. Submit a PR with the new specs and configuration

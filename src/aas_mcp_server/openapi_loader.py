@@ -67,6 +67,67 @@ def parse_path_filter(filter_str: str) -> tuple[str, list[str] | None]:
     return filter_str, None
 
 
+def _build_path_methods_map(include_filters: list[str]) -> dict[str, set[str] | None]:
+    """
+    Build a mapping of paths to their allowed methods from filter strings.
+
+    Args:
+        include_filters: List of path filter strings
+
+    Returns:
+        Dict mapping path to set of methods (or None for all methods)
+    """
+    path_methods: dict[str, set[str] | None] = {}
+
+    for filter_str in include_filters:
+        path, methods = parse_path_filter(filter_str)
+
+        if path not in path_methods:
+            path_methods[path] = set(methods) if methods else None
+        elif methods is None:
+            # If any filter says "all methods", use all methods
+            path_methods[path] = None
+        elif path_methods[path] is not None:
+            # Merge methods if both specify methods
+            path_methods[path].update(methods)
+
+    return path_methods
+
+
+def _filter_path_definition(
+    definition: dict[str, Any],
+    allowed_methods: set[str] | None,
+    http_methods: set[str]
+) -> dict[str, Any] | None:
+    """
+    Filter a path definition to include only allowed methods.
+
+    Args:
+        definition: Path definition from OpenAPI spec
+        allowed_methods: Set of allowed methods (None = all methods)
+        http_methods: Set of valid HTTP method names
+
+    Returns:
+        Filtered definition, or None if no methods remain
+    """
+    if allowed_methods is None:
+        # Include all methods
+        return definition
+
+    # Include only specified methods
+    filtered_definition = {
+        key: value
+        for key, value in definition.items()
+        if key.lower() not in http_methods or key.lower() in allowed_methods
+    }
+
+    # Only return if at least one HTTP method remains
+    if any(k.lower() in http_methods for k in filtered_definition):
+        return filtered_definition
+
+    return None
+
+
 def filter_paths(spec: dict[str, Any], include_filters: list[str]) -> dict[str, Any]:
     """
     Filter OpenAPI spec to include only specified paths and methods.
@@ -86,39 +147,21 @@ def filter_paths(spec: dict[str, Any], include_filters: list[str]) -> dict[str, 
     result = deepcopy(spec)
 
     # Parse all filters into a dict: {path: set of methods or None}
-    path_methods: dict[str, set[str] | None] = {}
-    for filter_str in include_filters:
-        path, methods = parse_path_filter(filter_str)
-        if path not in path_methods:
-            path_methods[path] = set(methods) if methods else None
-        elif path_methods[path] is not None and methods is not None:
-            # Merge methods if both specify methods
-            path_methods[path].update(methods)
-        elif methods is None:
-            # If any filter says "all methods", use all methods
-            path_methods[path] = None
+    path_methods = _build_path_methods_map(include_filters)
 
     # Filter paths and methods
-    filtered_paths = {}
     http_methods = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
+    filtered_paths = {}
 
     for path, definition in spec.get("paths", {}).items():
         if path not in path_methods:
             continue
 
         allowed_methods = path_methods[path]
-        if allowed_methods is None:
-            # Include all methods
-            filtered_paths[path] = definition
-        else:
-            # Include only specified methods
-            filtered_definition = {
-                key: value
-                for key, value in definition.items()
-                if key.lower() not in http_methods or key.lower() in allowed_methods
-            }
-            if any(k.lower() in http_methods for k in filtered_definition):
-                filtered_paths[path] = filtered_definition
+        filtered_definition = _filter_path_definition(definition, allowed_methods, http_methods)
+
+        if filtered_definition is not None:
+            filtered_paths[path] = filtered_definition
 
     result["paths"] = filtered_paths
     return result

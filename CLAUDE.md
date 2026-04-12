@@ -6,76 +6,234 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AAS MCP Server is an OpenAPI-to-MCP bridge for Asset Administration Shell (AAS) APIs. It converts OpenAPI specifications into Model Context Protocol (MCP) tools, enabling LLMs to interact with AAS services through a safe, curated interface.
 
-**Key Architecture Principle**: Single codebase, multi-component monorepo. One CLI, multiple AAS components (repositories and registries), each with its own OpenAPI spec and default configuration.
+**Key Architecture Principles**:
+1. **Pure Adapter Pattern**: The server doesn't bundle any AAS backend implementation. Users provide their own AAS backend (BaSyx, FA³ST, custom, etc.), and this server translates LLM requests into HTTP calls.
+2. **Single Codebase, Multi-Component**: One CLI, multiple AAS components (repositories and registries), each with its own OpenAPI spec and default configuration.
+3. **Default: Official Specs**: By default, uses full official AAS specifications. Derived specs are provided as examples for specific implementations (BaSyx).
 
 ## Component Architecture
 
 The server supports 4 AAS components, defined in `src/aas_mcp_server/cli.py:COMPONENT_CONFIGS`:
 
-1. **aas-repo** - Asset Administration Shell Repository (port 8080)
-2. **submodel-repo** - Submodel Repository (port 8081)
-3. **aas-registry** - AAS Registry (port 8083)
-4. **submodel-registry** - Submodel Registry (port 8084)
+1. **aas-repo** - Asset Administration Shell Repository
+2. **submodel-repo** - Submodel Repository
+3. **aas-registry** - AAS Registry
+4. **submodel-registry** - Submodel Registry
 
 Each component has:
-- Default OpenAPI spec path (derived specs in `openapi/derived/*.yaml`)
-- Default base URL (localhost with component-specific port)
+- Default OpenAPI spec path (official AAS specs in `openapi/*.yaml`)
+- Default base URL (must be provided by user, or defaults to localhost)
 - Description string
 
-**Note**: All components now use **derived OpenAPI specs** that are filtered to only include endpoints supported by the Eclipse BaSyx implementation. See the "Derived Specs and BaSyx Filtering" section below for details.
+**OpenAPI Specification Strategy**:
+- **Default**: Official AAS OpenAPI specs (V3.1.1 SSP-001) - full, unfiltered
+- **Examples**: Derived specs in `openapi/derived/` for Eclipse BaSyx v2.0
+- **User Choice**: Users can generate their own derived specs for their implementation (see "Derived Specs and Implementation Filtering" below)
 
 ## Core Processing Pipeline
 
 **Entry Point**: `cli.py:main()` → `server.py:build_mcp_server()` → FastMCP server
 
-The OpenAPI spec undergoes a 3-stage transformation:
+The architecture separates **build-time** spec generation from **runtime** spec processing:
 
-### Stage 1: Load & Process (`openapi_loader.py`)
-1. Load OpenAPI YAML from disk
-2. **Path Filtering** (optional): Filter to specific paths/methods via env var
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        BUILD-TIME PIPELINE                              │
+│                   (Run scripts to generate specs)                       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐
+│ Implementation Config│  configs/basyx-config.yaml
+│ (BaSyx, FA³ST, etc.) │  - implementation_spec (what's actually supported)
+└──────────┬───────────┘  - official_spec (full AAS spec)
+           │              - overlay (renames for LLMs)
+           ▼
+┌──────────────────────┐
+│ generate_filters.py  │  Computes intersection: official ∩ implementation
+└──────────┬───────────┘  Output: Filter strings (env vars)
+           │              Example: AAS_REPO_FILTER_PATHS="/shells:get,post;..."
+           ▼
+┌──────────────────────┐
+│generate_derived_      │  Applies filters + overlays to official spec
+│    spec.py           │  Output: openapi/derived/*-derived.yaml
+└──────────┬───────────┘  (One derived spec per component)
+           │
+           ▼
+     ┌─────────────┐
+     │ Derived Spec│───────┐
+     │  (filtered  │       │
+     │   + overlay)│       │
+     └─────────────┘       │
+                           │
+┌──────────────────────────────────────────────────────────────────────┐
+│                       RUNTIME PIPELINE                               │
+│                  (When MCP server starts)                            │
+└──────────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+         ┌─────────────────────────────┐
+         │ Stage 1: openapi_loader.py  │
+         │ - Load derived spec         │
+         │ - (Optional) Runtime filter │
+         │ - (Optional) Runtime overlay│
+         └──────────┬──────────────────┘
+                    ▼
+         ┌─────────────────────────────┐
+         │ Stage 2: tool_curation.py   │
+         │ - Allowlist filtering       │
+         │ - Read-only enforcement     │
+         │ - operationId aliasing      │
+         │ - Limit parameter capping   │
+         └──────────┬──────────────────┘
+                    ▼
+         ┌─────────────────────────────┐
+         │ Stage 3: server.py          │
+         │ - FastMCP.from_openapi()    │
+         │ - Generate MCP tools        │
+         │ - Build HTTP client         │
+         └──────────┬──────────────────┘
+                    ▼
+              ┌──────────┐
+              │ MCP Tools│ (Ready for LLM use)
+              └──────────┘
+```
+
+### When to Regenerate Specs
+
+**Regenerate derived specs when:**
+- Implementation adds/removes endpoint support
+- You want to expose different operations
+- Overlay names need updating
+- Switching to a different implementation (BaSyx → FA³ST)
+
+**Quick regeneration:**
+```bash
+# Regenerate all specs for current config
+python3 scripts/generate_implementation.py
+
+# Or for specific implementation
+python3 scripts/generate_implementation.py --config configs/faaast-config.yaml
+
+# Validate specs are up-to-date
+python3 scripts/validate_derived_specs.py
+```
+
+### Build-Time vs Runtime
+
+| Stage | When | Purpose | Tools |
+|-------|------|---------|-------|
+| **Build-Time** | Before deployment, after config changes | Generate filtered specs from implementation configs | `generate_filters.py`, `generate_derived_spec.py`, `generate_implementation.py` |
+| **Runtime** | Every MCP server start | Apply safety rules and generate MCP tools | `openapi_loader.py`, `tool_curation.py`, `server.py` |
+
+**Why separate?**
+- **Performance**: Filtering at build-time means faster startup
+- **Inspectability**: Derived specs can be version-controlled and reviewed
+- **Flexibility**: Runtime can still apply additional filters/overlays if needed
+
+### Stage Details
+
+#### Build-Time: Spec Generation
+
+1. **Configuration** (`configs/*.yaml`)
+   - Defines implementation capabilities
+   - Points to implementation and official specs
+   - Specifies overlays for renaming
+
+2. **Filter Generation** (`scripts/generate_filters.py`)
+   - Computes intersection: official spec ∩ implementation spec
+   - Outputs filter strings (which paths/methods to keep)
+
+3. **Derived Spec Generation** (`scripts/generate_derived_spec.py`)
+   - Applies filters to official spec (keeps only supported endpoints)
+   - Applies overlays (renames operationIds for LLM understanding)
+   - Writes to `openapi/derived/*.yaml`
+
+#### Runtime: MCP Tool Generation
+
+**Stage 1: Load & Process** (`openapi_loader.py`)
+1. Load OpenAPI spec from disk
+   - **Default**: Official AAS spec (full, unfiltered)
+   - **Optional**: User-provided derived spec via `--openapi` flag
+2. **Optional**: Apply runtime path filtering via env var
    - Env var format: `{COMPONENT}_FILTER_PATHS` (e.g., `AAS_REPO_FILTER_PATHS`)
    - Filter syntax: `/path:method1,method2` or `/path` (all methods)
    - Semicolon-separated for multiple paths
-3. **Overlay Application** (optional): Apply OpenAPI Overlay spec if exists
+3. **Optional**: Apply runtime overlay if exists
    - Overlay path: `openapi/overlays/{component}-overlay.yaml`
    - Uses `oas-patch` library to apply overlay transformations
-   - Overlays can rename operationIds, update descriptions, add extensions
 
-### Stage 2: Curation (`tool_curation.py`)
+**Stage 2: Curation** (`tool_curation.py`)
 Safety-focused transformations:
 - **Allowlist filtering**: Only expose operations in `DEFAULT_ALLOWLIST`
 - **Read-only by default**: Block write methods (POST/PUT/PATCH/DELETE) unless `--enable-writes`
 - **operationId aliasing**: Rename operations to LLM-friendly names via `OPERATION_ID_ALIASES`
 - **Limit parameter capping**: Cap pagination limits to max 100
 
-### Stage 3: MCP Generation (`server.py`)
+**Stage 3: MCP Generation** (`server.py`)
 - `FastMCP.from_openapi()` generates MCP tools from curated spec
 - HTTP client built with optional auth headers (`http_client.py`)
 - Returns ready-to-run FastMCP server instance
 
-## Derived Specs and BaSyx Filtering
+## Derived Specs and Implementation Filtering
 
-All AAS components use **derived OpenAPI specifications** that are pre-filtered to only include endpoints actually supported by the Eclipse BaSyx implementation. This ensures the MCP server exposes a practical, working API surface rather than the full theoretical specification.
+**By default**, the MCP server uses the **official AAS OpenAPI specifications** (V3.1.1 SSP-001) - full, unfiltered specs that define the complete AAS API surface.
 
-### Why Derived Specs?
+**Optional**: The project includes **example derived specs** for **Eclipse BaSyx v2.0** in `openapi/derived/`. These are pre-filtered to only include endpoints that BaSyx actually implements, preventing LLMs from attempting to use unsupported endpoints.
 
-The official AAS OpenAPI specs (V3.1.1 SSP-001) define many endpoints that are not implemented by BaSyx:
-- **AAS Repo**: Official spec has 33 paths, BaSyx implements only 6 core paths
-- **Submodel Repo**: Official spec has 30 paths, BaSyx implements only 9 core paths
-- **AAS Registry**: Official spec has 5 paths, all are supported by BaSyx
-- **Submodel Registry**: Official spec has 3 paths, all are supported by BaSyx
+**User Choice**: Users can generate their own derived specs for their specific implementation (FA³ST, custom servers, etc.) using the provided tools.
 
-Using derived specs prevents LLMs from attempting to use unsupported endpoints.
+### Why Use Derived Specs?
 
-### Generating Derived Specs
+The official AAS OpenAPI specs are comprehensive, but real-world implementations often support only a subset of endpoints:
 
-Derived specs are generated using a two-step process:
+**Example - Eclipse BaSyx Coverage:**
+- **AAS Repo**: Official spec has 33 paths, BaSyx implements 6 core paths (18% coverage)
+- **Submodel Repo**: Official spec has 30 paths, BaSyx implements 9 paths (30% coverage)
+- **AAS Registry**: Official spec has 5 paths, BaSyx implements all 5 (100% coverage)
+- **Submodel Registry**: Official spec has 3 paths, BaSyx implements all 3 (100% coverage)
 
-1. **Generate BaSyx filter strings** (computes intersection of official spec and BaSyx implementation):
+**Benefits of derived specs:**
+- Prevents LLMs from attempting unsupported endpoints (better UX)
+- Faster spec processing (smaller OpenAPI spec)
+- Clearer tool documentation (only shows what works)
+
+**When to use official specs vs derived specs:**
+- **Official specs** (default): Your backend implements most/all of the AAS specification
+- **Derived specs**: Your backend implements a subset, and you want to hide unsupported endpoints
+
+### Generating Derived Specs for Your Implementation
+
+**Quick method** (recommended - runs all steps automatically):
+```bash
+# One command to generate all specs
+python3 scripts/generate_implementation.py --config configs/your-config.yaml
+
+# Dry-run to preview
+python3 scripts/generate_implementation.py --config configs/your-config.yaml --dry-run
+```
+
+**Manual method** (for advanced users):
+
+1. **Generate filter strings** (computes intersection of official spec and implementation):
    ```bash
-   python3 scripts/generate_basyx_filters.py
+   # Use default configuration (BaSyx)
+   python3 scripts/generate_filters.py
+
+   # Use specific implementation via environment variable
+   export AAS_IMPLEMENTATION_CONFIG=configs/faaast-config.yaml
+   python3 scripts/generate_filters.py
+
+   # Use specific implementation via command-line
+   python3 scripts/generate_filters.py --config configs/your-config.yaml
+
+   # List available configurations
+   python3 scripts/generate_filters.py --list-configs
    ```
-   This analyzes BaSyx endpoint files in `docs/` and outputs filter path strings for all components.
+
+   The script loads configuration from (in priority order):
+   1. Command-line argument (`--config`)
+   2. Environment variable (`AAS_IMPLEMENTATION_CONFIG`)
+   3. Default (`configs/basyx-config.yaml`)
 
 2. **Generate derived specs** using the filter strings:
    ```bash
@@ -95,7 +253,9 @@ Derived specs are generated using a two-step process:
 
 Derived specs are written to `openapi/derived/` and include overlays automatically.
 
-### BaSyx-Supported Endpoints
+### Default Implementation: Eclipse BaSyx
+
+The project includes derived specs for **Eclipse BaSyx** implementations as the default reference. The following endpoints are supported:
 
 **AAS Repository** (6 paths, 13 operations):
 - `/shells` - GET, POST
@@ -128,10 +288,42 @@ Derived specs are written to `openapi/derived/` and include overlays automatical
 - `/submodel-descriptors` - GET, POST
 - `/submodel-descriptors/{submodelIdentifier}` - GET, PUT, DELETE
 
-The reference documentation is maintained in:
+**Reference Documentation:**
 - `docs/basyx-repo-supported-endpoints.json` (AAS and Submodel Repositories)
 - `docs/basyx-aas-registry-supported-endpoints.json` (AAS Registry)
 - `docs/basyx-submodel-registry-supported-endpoints.json` (Submodel Registry)
+
+### Adding Support for Other Implementations
+
+To add support for additional implementations (e.g., FA³ST, custom servers):
+
+1. **Document the implementation's endpoints** in an OpenAPI JSON/YAML file (e.g., `docs/faaast-repo-supported-endpoints.json`)
+
+2. **Create a configuration file** in `configs/` directory:
+   ```yaml
+   # configs/faaast-config.yaml
+   name: FA³ST Service
+   version: v1.0
+   components:
+     aas-repo:
+       implementation_spec: docs/faaast-repo-supported-endpoints.json
+       official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+       path_prefix: /shells
+   ```
+   See `configs/README.md` and `configs/faaast-config.yaml.template` for details.
+
+3. **Generate filter strings**:
+   ```bash
+   python3 scripts/generate_filters.py --config configs/faaast-config.yaml
+   ```
+
+4. **Generate derived specs** using the output filter strings
+
+5. **(Optional) Create overlays** to customize operation names and descriptions
+
+6. **Update CLI configuration** in `src/aas_mcp_server/cli.py` to point to the new derived specs
+
+The architecture supports multiple implementations side-by-side through configuration files in the `configs/` directory. Each configuration defines the endpoint mapping for a specific AAS implementation.
 
 ## Development Commands
 

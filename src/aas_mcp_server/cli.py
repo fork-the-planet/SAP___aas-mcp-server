@@ -3,24 +3,26 @@ import os
 from .server import build_mcp_server
 
 # Component-to-OpenAPI mapping
+# By default, uses official AAS specifications (full, unfiltered)
+# Users can override with --openapi flag to use derived specs or custom specs
 COMPONENT_CONFIGS = {
     "aas-repo": {
-        "openapi": "openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
+        "openapi": "openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8080",
         "description": "AAS Repository - Manage Asset Administration Shells",
     },
     "submodel-repo": {
-        "openapi": "openapi/derived/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
+        "openapi": "openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8081",
         "description": "Submodel Repository - Manage Submodels",
     },
     "aas-registry": {
-        "openapi": "openapi/derived/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
+        "openapi": "openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8083",
         "description": "AAS Registry - Discover and register AAS components",
     },
     "submodel-registry": {
-        "openapi": "openapi/derived/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml",
+        "openapi": "openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml",
         "default_url": "http://localhost:8084",
         "description": "Submodel Registry - Discover and register Submodels",
     },
