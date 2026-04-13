@@ -1,11 +1,31 @@
 import logging
 import os
 
-def configure_logging(level: str = "INFO") -> None:
+# Environment variable names
+ENV_VAR_HTTPX_LOG_LEVEL = "HTTPX_LOG_LEVEL"
+
+# Default log level
+DEFAULT_LOG_LEVEL = "INFO"
+
+# Log format
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+# Logger names
+LOGGER_HTTPX = "httpx"
+
+
+def configure_logging(level: str = DEFAULT_LOG_LEVEL) -> None:
+    """
+    Configure logging for the application.
+
+    Args:
+        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        format=LOG_FORMAT,
     )
     # Reduce noisy logs if desired
-    if os.getenv("HTTPX_LOG_LEVEL"):
-        logging.getLogger("httpx").setLevel(os.getenv("HTTPX_LOG_LEVEL"))
+    httpx_log_level = os.getenv(ENV_VAR_HTTPX_LOG_LEVEL)
+    if httpx_log_level:
+        logging.getLogger(LOGGER_HTTPX).setLevel(httpx_log_level)

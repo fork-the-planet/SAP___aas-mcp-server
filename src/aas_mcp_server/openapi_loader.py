@@ -28,6 +28,22 @@ import yaml
 from oas_patch import apply_overlay
 
 
+# Constants for parsing and filtering
+FILTER_DELIMITER = ":"
+METHOD_SEPARATOR = ","
+PATH_FILTER_SEPARATOR = ";"
+FILE_ENCODING = "utf-8"
+
+# HTTP methods recognized in OpenAPI specs
+HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
+
+# OpenAPI spec structure keys
+OPENAPI_KEY_PATHS = "paths"
+
+# Directory and file patterns
+DEFAULT_OVERLAY_DIR = "openapi/overlays"
+OVERLAY_FILE_PATTERN = "{component_name}-overlay.yaml"
+
 # Mapping of component names to their filter paths env variable names
 COMPONENT_FILTER_ENV_VARS = {
     "aas-repo": "AAS_REPO_FILTER_PATHS",
@@ -39,7 +55,7 @@ COMPONENT_FILTER_ENV_VARS = {
 
 def load_openapi_yaml(path: str) -> dict[str, Any]:
     """Load an OpenAPI YAML file."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding=FILE_ENCODING) as f:
         return yaml.safe_load(f)
 
 
@@ -60,9 +76,9 @@ def parse_path_filter(filter_str: str) -> tuple[str, list[str] | None]:
     Returns:
         Tuple of (path, methods) where methods is None for all methods
     """
-    if ":" in filter_str:
-        path, methods_str = filter_str.rsplit(":", 1)
-        methods = [m.strip().lower() for m in methods_str.split(",") if m.strip()]
+    if FILTER_DELIMITER in filter_str:
+        path, methods_str = filter_str.rsplit(FILTER_DELIMITER, 1)
+        methods = [m.strip().lower() for m in methods_str.split(METHOD_SEPARATOR) if m.strip()]
         return path, methods if methods else None
     return filter_str, None
 
@@ -150,24 +166,23 @@ def filter_paths(spec: dict[str, Any], include_filters: list[str]) -> dict[str, 
     path_methods = _build_path_methods_map(include_filters)
 
     # Filter paths and methods
-    http_methods = {"get", "post", "put", "patch", "delete", "head", "options", "trace"}
     filtered_paths = {}
 
-    for path, definition in spec.get("paths", {}).items():
+    for path, definition in spec.get(OPENAPI_KEY_PATHS, {}).items():
         if path not in path_methods:
             continue
 
         allowed_methods = path_methods[path]
-        filtered_definition = _filter_path_definition(definition, allowed_methods, http_methods)
+        filtered_definition = _filter_path_definition(definition, allowed_methods, HTTP_METHODS)
 
         if filtered_definition is not None:
             filtered_paths[path] = filtered_definition
 
-    result["paths"] = filtered_paths
+    result[OPENAPI_KEY_PATHS] = filtered_paths
     return result
 
 
-def get_overlay_path(component_name: str, base_dir: str = "openapi/overlays") -> Path | None:
+def get_overlay_path(component_name: str, base_dir: str = DEFAULT_OVERLAY_DIR) -> Path | None:
     """
     Get the overlay file path for a component if it exists.
 
@@ -178,7 +193,8 @@ def get_overlay_path(component_name: str, base_dir: str = "openapi/overlays") ->
     Returns:
         Path to overlay file if it exists, None otherwise
     """
-    overlay_path = Path(base_dir) / f"{component_name}-overlay.yaml"
+    overlay_filename = OVERLAY_FILE_PATTERN.format(component_name=component_name)
+    overlay_path = Path(base_dir) / overlay_filename
     if overlay_path.exists():
         return overlay_path
     return None
@@ -203,13 +219,13 @@ def get_filter_paths_from_env(component_name: str) -> list[str] | None:
         return None
 
     # Parse semicolon-separated path filters, strip whitespace
-    return [p.strip() for p in paths_str.split(";") if p.strip()]
+    return [p.strip() for p in paths_str.split(PATH_FILTER_SEPARATOR) if p.strip()]
 
 
 def load_and_process_openapi(
     openapi_path: str,
     component_name: str,
-    overlay_base_dir: str = "openapi/overlays",
+    overlay_base_dir: str = DEFAULT_OVERLAY_DIR,
 ) -> dict[str, Any]:
     """
     Load OpenAPI spec with optional filtering and overlay application.
