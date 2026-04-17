@@ -11,21 +11,21 @@ For each path, it takes the intersection of HTTP methods (only methods in BOTH s
 Configuration is loaded from YAML files. The configuration file path can be specified via:
 1. Command-line argument: --config
 2. Environment variable: AAS_IMPLEMENTATION_CONFIG
-3. Default: configs/basyx-config.yaml
+3. Default: config.yaml.template (users should create their own config)
 
 Output format: Semicolon-separated path filters suitable for generate_derived_spec.py
 Example: /shells:get,post;/shells/{aasIdentifier}:get,put,delete
 
 Usage:
-    # Use default configuration (configs/basyx-config.yaml)
-    python3 scripts/generate_filters.py
+    # Use specific configuration
+    python3 scripts/generate_filters.py --config configs/my-implementation-config.yaml
 
     # Use environment variable
-    export AAS_IMPLEMENTATION_CONFIG=configs/faaast-config.yaml
+    export AAS_IMPLEMENTATION_CONFIG=configs/my-config.yaml
     python3 scripts/generate_filters.py
 
-    # Use command-line argument (overrides environment variable)
-    python3 scripts/generate_filters.py --config configs/basyx-config.yaml
+    # Use BaSyx example
+    python3 scripts/generate_filters.py --config configs/basyx-config.example.yaml
 
     # List available configurations
     python3 scripts/generate_filters.py --list-configs
@@ -51,8 +51,8 @@ logging.basicConfig(
 )
 
 
-# Default configuration file path
-DEFAULT_CONFIG_PATH = "configs/basyx-config.yaml"
+# Default configuration file path (template - users should create their own)
+DEFAULT_CONFIG_PATH = "configs/config.yaml.template"
 
 # Environment variable for configuration path
 CONFIG_ENV_VAR = "AAS_IMPLEMENTATION_CONFIG"
@@ -189,14 +189,14 @@ def list_available_configs():
     if not configs_dir.exists():
         logging.error("No configs/ directory found.")
         logging.info("\nPlease create a configs/ directory with configuration files.")
-        logging.info("See configs/basyx-config.yaml for an example.")
+        logging.info("See config.yaml.template and basyx-config.example.yaml for examples.")
         return
 
     config_files = list(configs_dir.glob("*.yaml")) + list(configs_dir.glob("*.yml"))
     if not config_files:
         logging.error("No configuration files found in configs/ directory.")
         logging.info("\nPlease create a configuration file in configs/")
-        logging.info("See configs/basyx-config.yaml for an example.")
+        logging.info("See config.yaml.template and basyx-config.example.yaml for examples.")
         return
 
     logging.info("Available configurations in configs/:")

@@ -1,13 +1,19 @@
-# Eclipse BaSyx Implementation Configuration
+# Eclipse BaSyx Implementation Configuration (EXAMPLE)
 #
-# This configuration file defines the complete specification pipeline for Eclipse BaSyx v2.0:
-# 1. Endpoint intersection (which endpoints are supported)
-# 2. Overlay application (renaming operations for LLM understanding)
-# 3. Curation rules (allowlist, aliases, safety settings)
+# This is an EXAMPLE configuration for Eclipse BaSyx v2.0.
+# It demonstrates how to configure the MCP server for a specific AAS implementation.
+#
+# To use this example:
+#   python3 scripts/generate_implementation.py --config configs/basyx-config.example.yaml
+#
+# To create your own configuration:
+#   1. Copy config.yaml.template to your-config.yaml
+#   2. Customize it for your implementation
+#   3. Generate specs with your config file
 
-name: Eclipse BaSyx
+name: Eclipse BaSyx (Example)
 version: v2.0
-description: Configuration for Eclipse BaSyx AAS server implementation
+description: Example configuration for Eclipse BaSyx AAS server implementation
 
 # Component configurations
 # Each component specifies:

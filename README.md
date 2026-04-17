@@ -125,6 +125,7 @@ See `configs/README.md` for detailed instructions.
 - `--component` (required): Which AAS component to serve
 - `--base-url` (required): URL of your AAS backend server
 - `--openapi`: Custom OpenAPI spec path (default: official AAS spec for component)
+- `--config`: Path to implementation config file (for loading curation settings)
 - `--enable-writes`: Enable write operations (default: read-only)
 - `--log-level`: Logging level (default: INFO)
 - `--transport`: Transport protocol (default: stdio)
@@ -272,6 +273,59 @@ This server is a **pure adapter**:
 - Run AAS backend (you provide that)
 - Store AAS data (your backend does that)
 - Implement AAS business logic (your backend does that)
+
+### Safety and Curation
+
+The server implements multiple layers of safety:
+
+1. **Read-only by default**: Write operations (POST/PUT/PATCH/DELETE) are blocked unless you explicitly use `--enable-writes`
+
+2. **Allowlist filtering**: Only operations explicitly listed in `DEFAULT_ALLOWLIST` are exposed as MCP tools
+   - Currently hardcoded in `src/aas_mcp_server/tool_curation.py`
+   - Minimal default: Only `GET /shells` is exposed initially
+   - Edit `DEFAULT_ALLOWLIST` to expose additional endpoints
+
+3. **Operation aliasing**: Operations are renamed to be LLM-friendly
+   - Example: `GetAllAssetAdministrationShells` → `list_shells`
+   - Edit `OPERATION_ID_ALIASES` in `tool_curation.py` to customize
+
+4. **Pagination limits**: Query parameters like `limit` are capped at 100 to prevent excessive responses
+
+**Customizing Exposed Operations:**
+
+You can customize which operations are exposed in two ways:
+
+**Option 1: Using Config Files (Recommended)**
+```bash
+# Create a config file with curation settings
+cat > configs/my-curation.yaml <<EOF
+components:
+  aas-repo:
+    implementation_spec: docs/my-endpoints.json
+    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    curation:
+      allowlist:
+        - [get, /shells]
+        - [post, /shells]
+        - [get, /shells/{aasIdentifier}]
+      aliases:
+        GetAllAssetAdministrationShells: list_shells
+        GetAssetAdministrationShellById: get_shell
+EOF
+
+# Run server with config
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://localhost:8080 \
+  --config configs/my-curation.yaml
+```
+
+**Option 2: Editing Code Directly**
+1. Edit `src/aas_mcp_server/tool_curation.py`
+2. Add entries to `DEFAULT_ALLOWLIST` (e.g., `(HTTP_METHOD_GET, "/shells/{aasIdentifier}")`)
+3. Add entries to `OPERATION_ID_ALIASES` for friendly names
+
+*Note: Config files override hardcoded defaults when `--config` is provided.*
 
 ## Development
 

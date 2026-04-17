@@ -12,7 +12,7 @@ generating MCP tools. It implements a defense-in-depth approach:
 The goal is to provide a minimal, safe, and usable API surface for LLMs.
 """
 
-from typing import Any, Dict, Set, Tuple
+from typing import Any, Dict, Set, Tuple, Optional
 
 # OpenAPI spec structure keys
 OPENAPI_KEY_PATHS = "paths"
@@ -54,7 +54,11 @@ OPERATION_ID_ALIASES = {
 }
 
 
-def curate_openapi_spec(spec: Dict[str, Any], enable_writes: bool) -> Dict[str, Any]:
+def curate_openapi_spec(
+    spec: Dict[str, Any],
+    enable_writes: bool,
+    curation_settings: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Curate OpenAPI spec for MCP tool generation.
 
@@ -67,10 +71,26 @@ def curate_openapi_spec(spec: Dict[str, Any], enable_writes: bool) -> Dict[str, 
     Args:
         spec: OpenAPI specification dictionary
         enable_writes: Whether to allow write operations (POST/PUT/PATCH/DELETE)
+        curation_settings: Optional dict with:
+            - 'allowlist': Set of (method, path) tuples to expose
+            - 'aliases': Dict mapping operationId -> friendly name
+            If None, uses DEFAULT_ALLOWLIST and OPERATION_ID_ALIASES
 
     Returns:
         Curated OpenAPI specification
     """
+    # Use custom curation settings or fall back to defaults
+    allowlist = (
+        curation_settings.get('allowlist', DEFAULT_ALLOWLIST)
+        if curation_settings
+        else DEFAULT_ALLOWLIST
+    )
+    aliases = (
+        curation_settings.get('aliases', OPERATION_ID_ALIASES)
+        if curation_settings
+        else OPERATION_ID_ALIASES
+    )
+
     out = dict(spec)
 
     paths = out.get(OPENAPI_KEY_PATHS, {})
@@ -84,7 +104,7 @@ def curate_openapi_spec(spec: Dict[str, Any], enable_writes: bool) -> Dict[str, 
                 continue
 
             # 1) Allowlist filter (keeps tool surface stable)
-            if (m, path) not in DEFAULT_ALLOWLIST:
+            if (m, path) not in allowlist:
                 continue
 
             # 2) Readonly-by-default safety gate
@@ -95,8 +115,8 @@ def curate_openapi_spec(spec: Dict[str, Any], enable_writes: bool) -> Dict[str, 
 
             # 3) Rename tool via operationId aliasing (LLM-friendly)
             op_id = op.get(OPENAPI_KEY_OPERATION_ID)
-            if op_id in OPERATION_ID_ALIASES:
-                op[OPENAPI_KEY_OPERATION_ID] = OPERATION_ID_ALIASES[op_id]
+            if op_id in aliases:
+                op[OPENAPI_KEY_OPERATION_ID] = aliases[op_id]
 
             # 4) Cap limit parameter (defensive)
             op = _cap_limit_parameter(op, max_limit=DEFAULT_MAX_LIMIT)

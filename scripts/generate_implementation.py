@@ -9,17 +9,17 @@ This script runs the complete pipeline:
 This is a convenience wrapper around generate_filters.py and generate_derived_spec.py.
 
 Usage:
-    # Generate all specs for default implementation (BaSyx)
-    python3 scripts/generate_implementation.py
+    # Generate specs for your implementation
+    python3 scripts/generate_implementation.py --config configs/my-implementation-config.yaml
 
-    # Generate for specific implementation
-    python3 scripts/generate_implementation.py --config configs/faaast-config.yaml
+    # Generate for BaSyx example
+    python3 scripts/generate_implementation.py --config configs/basyx-config.example.yaml
 
     # Dry-run to see what would be generated without writing files
-    python3 scripts/generate_implementation.py --dry-run
+    python3 scripts/generate_implementation.py --config configs/my-config.yaml --dry-run
 
     # With verbose output
-    python3 scripts/generate_implementation.py --log-level DEBUG
+    python3 scripts/generate_implementation.py --config configs/my-config.yaml --log-level DEBUG
 """
 
 import argparse
@@ -41,8 +41,8 @@ logging.basicConfig(
     format='%(message)s'
 )
 
-# Default configuration file path
-DEFAULT_CONFIG_PATH = "configs/basyx-config.yaml"
+# Default configuration file path (template - users should create their own)
+DEFAULT_CONFIG_PATH = "configs/config.yaml.template"
 
 # Environment variable for configuration path
 CONFIG_ENV_VAR = "AAS_IMPLEMENTATION_CONFIG"

@@ -9,14 +9,14 @@ This script checks:
 4. Whether the filter paths match (by checking path counts)
 
 Usage:
-    # Validate default configuration (BaSyx)
-    python3 scripts/validate_derived_specs.py
+    # Validate your implementation configuration
+    python3 scripts/validate_derived_specs.py --config configs/my-implementation-config.yaml
 
-    # Validate specific configuration
-    python3 scripts/validate_derived_specs.py --config configs/faaast-config.yaml
+    # Validate BaSyx example configuration
+    python3 scripts/validate_derived_specs.py --config configs/basyx-config.example.yaml
 
     # Verbose output
-    python3 scripts/validate_derived_specs.py --log-level DEBUG
+    python3 scripts/validate_derived_specs.py --config configs/my-config.yaml --log-level DEBUG
 """
 
 import argparse
@@ -37,8 +37,8 @@ logging.basicConfig(
     format='%(message)s'
 )
 
-# Default configuration file path
-DEFAULT_CONFIG_PATH = "configs/basyx-config.yaml"
+# Default configuration file path (template - users should create their own)
+DEFAULT_CONFIG_PATH = "configs/config.yaml.template"
 
 # Environment variable for configuration path
 CONFIG_ENV_VAR = "AAS_IMPLEMENTATION_CONFIG"

@@ -461,6 +461,57 @@ Key test patterns:
 
 **Authentication support**: Optional bearer tokens and API keys are supported but must be explicitly configured via environment variables.
 
+### Curation: Config Files vs Runtime
+
+**Current Behavior (UPDATED - Now Fully Supported!):**
+- Curation (allowlist and aliases) **is fully implemented and working** at runtime
+- You can now **load curation settings from config files** using the `--config` flag
+- If no config is provided, the runtime uses **hardcoded defaults** in `src/aas_mcp_server/tool_curation.py`
+  - `DEFAULT_ALLOWLIST`: Which operations to expose
+  - `OPERATION_ID_ALIASES`: How to rename operations
+
+**Using Config Files:**
+- Configuration files (`configs/*.yaml`) can include a `curation` section
+- Pass `--config path/to/config.yaml` when starting the MCP server
+- The curation settings from the config will **override** the hardcoded defaults
+- This allows customization without code changes!
+
+**Example Config File:**
+```yaml
+components:
+  aas-repo:
+    # ... other settings ...
+    curation:
+      allowlist:
+        - [get, /shells]
+        - [post, /shells]
+        - [get, /shells/{aasIdentifier}]
+      aliases:
+        GetAllAssetAdministrationShells: list_shells
+        GetAssetAdministrationShellById: get_shell
+```
+
+**Usage:**
+```bash
+# Load curation settings from config file
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://localhost:8080 \
+  --config configs/my-config.yaml
+
+# Without --config flag, uses hardcoded defaults from tool_curation.py
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://localhost:8080
+```
+
+**Alternative: Edit Code Directly (Old Method)**
+If you prefer not to use config files:
+1. Edit `src/aas_mcp_server/tool_curation.py` directly
+2. Modify `DEFAULT_ALLOWLIST` to add/remove operations
+3. Modify `OPERATION_ID_ALIASES` to rename operations
+4. Restart the MCP server
+
 ## MCP Integration Notes
 
 Claude Desktop configuration requires one entry per component:

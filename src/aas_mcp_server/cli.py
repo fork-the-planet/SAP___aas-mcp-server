@@ -15,6 +15,10 @@ Each component can be configured via command-line arguments or environment varia
 
 import argparse
 import os
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Optional
+import yaml
+
 from .server import build_mcp_server
 
 # Constants for environment variables
@@ -23,6 +27,7 @@ ENV_VAR_AAS_MCP_ENABLE_WRITES = "AAS_MCP_ENABLE_WRITES"
 ENV_VAR_LOG_LEVEL = "LOG_LEVEL"
 ENV_VAR_AAS_BASE_URL = "AAS_BASE_URL"
 ENV_VAR_AAS_OPENAPI_PATH = "AAS_OPENAPI_PATH"
+ENV_VAR_AAS_IMPLEMENTATION_CONFIG = "AAS_IMPLEMENTATION_CONFIG"
 
 # Constants for default values
 DEFAULT_TRANSPORT = "stdio"
@@ -37,6 +42,7 @@ CLI_DESCRIPTION = "AAS MCP Server (OpenAPI → MCP) - Support for multiple AAS c
 ARG_COMPONENT = "--component"
 ARG_BASE_URL = "--base-url"
 ARG_OPENAPI = "--openapi"
+ARG_CONFIG = "--config"
 ARG_TRANSPORT = "--transport"
 ARG_ENABLE_WRITES = "--enable-writes"
 ARG_LOG_LEVEL = "--log-level"
@@ -71,6 +77,60 @@ COMPONENT_CONFIGS = {
         CONFIG_KEY_DESCRIPTION: "Submodel Registry - Discover and register Submodels",
     },
 }
+
+def load_curation_from_config(config_path: Optional[str], component_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Load curation settings from configuration file.
+
+    Args:
+        config_path: Path to configuration YAML file
+        component_name: Name of the component (e.g., "aas-repo")
+
+    Returns:
+        Dictionary with curation settings (allowlist, aliases) or None if not found
+    """
+    if not config_path:
+        return None
+
+    config_file = Path(config_path)
+    if not config_file.exists():
+        return None
+
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        if not config:
+            return None
+
+        # Navigate to component-specific curation settings
+        components = config.get('components', {})
+        component_config = components.get(component_name, {})
+        curation = component_config.get('curation')
+
+        if not curation:
+            return None
+
+        # Convert allowlist from list format to set of tuples
+        result: Dict[str, Any] = {}
+
+        if 'allowlist' in curation:
+            allowlist_raw = curation['allowlist']
+            if isinstance(allowlist_raw, list):
+                # Convert [[method, path], ...] to {(method, path), ...}
+                result['allowlist'] = {
+                    (tuple(item) if isinstance(item, list) else item)
+                    for item in allowlist_raw
+                }
+
+        if 'aliases' in curation:
+            result['aliases'] = dict(curation['aliases'])
+
+        return result if result else None
+
+    except Exception:
+        # Silently fail - will use defaults
+        return None
 
 def main() -> None:
     """
@@ -107,6 +167,10 @@ def main() -> None:
         help="Custom OpenAPI spec path (overrides component default)"
     )
     p.add_argument(
+        ARG_CONFIG,
+        help="Path to implementation config file (for loading curation settings)"
+    )
+    p.add_argument(
         ARG_TRANSPORT,
         default=os.getenv(ENV_VAR_MCP_TRANSPORT, DEFAULT_TRANSPORT),
         choices=[DEFAULT_TRANSPORT]
@@ -138,12 +202,17 @@ def main() -> None:
         or component_config[CONFIG_KEY_OPENAPI]
     )
 
+    # Load curation settings from config file if provided
+    config_path = args.config or os.getenv(ENV_VAR_AAS_IMPLEMENTATION_CONFIG)
+    curation_settings = load_curation_from_config(config_path, args.component)
+
     mcp = build_mcp_server(
         base_url=base_url,
         openapi_path=openapi_path,
         enable_writes=args.enable_writes,
         log_level=args.log_level,
         component_name=args.component,
+        curation_settings=curation_settings,
     )
     mcp.run(transport=args.transport)
 

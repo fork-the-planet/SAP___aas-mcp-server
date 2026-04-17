@@ -1,0 +1,124 @@
+# AAS Implementation Configuration Template
+#
+# This template shows how to configure the MCP server for any AAS implementation.
+# Copy this file, customize it for your implementation, and use it to generate derived specs.
+#
+# Usage:
+#   1. Copy this template: cp config.yaml.template my-implementation-config.yaml
+#   2. Update all fields to match your implementation
+#   3. Generate specs: python3 scripts/generate_implementation.py --config configs/my-implementation-config.yaml
+
+# Top-level metadata
+name: Your Implementation Name          # Human-readable name (e.g., "My AAS Server")
+version: v1.0                           # Version string
+description: Brief description of your AAS implementation
+
+# Component configurations
+# Configure each AAS component you want to support (aas-repo, submodel-repo, aas-registry, submodel-registry)
+components:
+
+  # Asset Administration Shell Repository
+  aas-repo:
+    # REQUIRED: Path to your implementation's endpoint documentation
+    # This should be an OpenAPI spec (JSON or YAML) listing all endpoints your implementation supports
+    implementation_spec: docs/your-impl-repo-endpoints.json
+
+    # REQUIRED: Path to the official AAS specification
+    # Use the official specs from the openapi/ directory
+    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+
+    # OPTIONAL: Path prefix filter
+    # Use this when your implementation spec contains multiple components
+    # Set to null if your spec only contains aas-repo endpoints
+    path_prefix: /shells
+
+    # OPTIONAL: Human-readable description
+    description: Asset Administration Shell Repository
+
+    # OPTIONAL: OpenAPI Overlay for customization
+    # Path to overlay file for renaming operations, updating descriptions, etc.
+    # Create overlays in openapi/overlays/ following the OpenAPI Overlay Specification
+    overlay: openapi/overlays/aas-repo-overlay.yaml
+
+    # OPTIONAL: Curation settings
+    # Control which operations are exposed as MCP tools and how they're named
+    # If provided, these settings override the hardcoded defaults in tool_curation.py
+    # If omitted, the server uses default values from tool_curation.py
+    # curation:
+    #   allowlist:                      # List of [method, path] tuples to expose as MCP tools
+    #     - [get, /shells]
+    #     - [post, /shells]
+    #     - [get, /shells/{aasIdentifier}]
+    #     - [put, /shells/{aasIdentifier}]
+    #     - [delete, /shells/{aasIdentifier}]
+    #   aliases:                        # Map operationId to LLM-friendly names
+    #     GetAllAssetAdministrationShells: list_shells
+    #     GetAssetAdministrationShellById: get_shell
+    #     PostAssetAdministrationShell: create_shell
+
+  # Submodel Repository
+  submodel-repo:
+    implementation_spec: docs/your-impl-repo-endpoints.json
+    official_spec: openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: /submodels        # or null if separate spec file
+    description: Submodel Repository
+    overlay: openapi/overlays/submodel-repo-overlay.yaml
+
+  # Asset Administration Shell Registry
+  aas-registry:
+    implementation_spec: docs/your-impl-aas-registry-endpoints.json
+    official_spec: openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: null              # Registries typically have their own spec files
+    description: Asset Administration Shell Registry
+    overlay: openapi/overlays/aas-registry-overlay.yaml
+
+  # Submodel Registry
+  submodel-registry:
+    implementation_spec: docs/your-impl-submodel-registry-endpoints.json
+    official_spec: openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: null
+    description: Submodel Registry
+    overlay: openapi/overlays/submodel-registry-overlay.yaml
+
+# Configuration Guide:
+#
+# 1. implementation_spec:
+#    - Document what your implementation actually supports
+#    - Can be JSON or YAML format
+#    - Should contain only the endpoints you have implemented
+#    - Used to compute intersection with official spec
+#
+# 2. official_spec:
+#    - Use the official AAS specifications from openapi/ directory
+#    - These are the authoritative specs from IDTA/AAS standards
+#    - Do not modify these files
+#
+# 3. path_prefix:
+#    - Use when one implementation spec file covers multiple components
+#    - Example: Combined repo spec with both /shells and /submodels paths
+#    - Set to null when spec contains only one component's paths
+#
+# 4. overlay:
+#    - Optional: Customize operation names and descriptions
+#    - Create overlays in openapi/overlays/ directory
+#    - Follow OpenAPI Overlay Specification (https://github.com/OAI/Overlay-Specification)
+#
+# 5. curation:
+#    - Optional: Document which operations to expose and how to name them
+#    - Currently for documentation only (runtime uses tool_curation.py defaults)
+#    - Future: May be consumed by runtime to override defaults
+
+# After Configuration:
+#
+# Generate all derived specs in one command:
+#   python3 scripts/generate_implementation.py --config configs/my-implementation-config.yaml
+#
+# Or step-by-step:
+#   1. Generate filter strings:
+#      python3 scripts/generate_filters.py --config configs/my-implementation-config.yaml
+#   2. Export the filter strings (shown in step 1 output)
+#   3. Generate derived specs for each component:
+#      python3 scripts/generate_derived_spec.py --component aas-repo
+#      python3 scripts/generate_derived_spec.py --component submodel-repo
+#      python3 scripts/generate_derived_spec.py --component aas-registry
+#      python3 scripts/generate_derived_spec.py --component submodel-registry

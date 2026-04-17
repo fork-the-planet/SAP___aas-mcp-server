@@ -1,226 +1,279 @@
 # Implementation Configurations
 
-This directory contains configuration files for different AAS implementation profiles. Each configuration defines the complete specification pipeline:
-1. **Endpoint intersection** (which endpoints are supported)
-2. **Overlay application** (renaming operations for LLM understanding)
-3. **Curation rules** (allowlist, aliases, safety settings)
+This directory contains configuration files for generating implementation-specific derived OpenAPI specifications. Use these configurations to adapt the official AAS specifications to match what your AAS implementation actually supports.
 
-## Available Configurations
+## Quick Start
 
-### Eclipse BaSyx (`basyx-config.yaml`)
-Default configuration for Eclipse BaSyx v2.0 implementation. This is the reference implementation included with the project.
-
-### FA³ST Service (Template)
-Template configuration for FA³ST Service. See `faaast-config.yaml.template` for instructions on how to create a FA³ST configuration.
-
-## Configuration File Format
-
-Each configuration file follows this structure:
-
-```yaml
-name: Implementation Name
-version: version
-description: Description of the implementation
-
-components:
-  component-name:
-    # Required fields
-    implementation_spec: path/to/implementation-endpoints.json  # What the implementation actually supports
-    official_spec: path/to/official-spec.yaml                  # Official AAS specification
-    
-    # Optional fields
-    path_prefix: /optional-prefix  # Filter paths by prefix (null = no filtering)
-    description: Component description
-    overlay: path/to/overlay.yaml  # OpenAPI Overlay for renaming operations
-    
-    # Optional curation settings (for documentation/future use)
-    curation:
-      allowlist:                   # List of [method, path] tuples to expose as MCP tools
-        - [get, /shells]
-        - [post, /shells]
-      aliases:                     # Map operationId to LLM-friendly names
-        GetAllAssetAdministrationShells: list_shells
-```
-
-### Fields Explained
-
-#### Top-level Fields
-
-- **name**: Human-readable name of the implementation (e.g., "Eclipse BaSyx")
-- **version**: Version string (e.g., "v2.0")
-- **description**: Brief description of the implementation
-
-#### Component Fields (Required)
-
-- **implementation_spec**: Path to OpenAPI spec documenting what the implementation actually supports
-  - Can be JSON or YAML format
-  - Should contain only the endpoints that the implementation has implemented
-  - Used to compute the intersection with the official spec
-
-- **official_spec**: Path to the official AAS OpenAPI specification
-  - Always YAML format
-  - The authoritative spec from IDTA/AAS standards body
-  - Used as the base for derived spec generation
-
-#### Component Fields (Optional)
-
-- **path_prefix**: String or null
-  - Filter implementation spec paths to only those starting with this prefix
-  - Useful when one implementation spec file covers multiple components
-  - Example: `/shells` for aas-repo, `/submodels` for submodel-repo
-  - Set to `null` when no filtering is needed
-
-- **description**: String
-  - Human-readable description shown in CLI output
-
-- **overlay**: String (path to file)
-  - Path to an OpenAPI Overlay YAML file
-  - Applied during derived spec generation
-  - Used to rename operationIds, update descriptions, add extensions
-  - Example: `openapi/overlays/aas-repo-overlay.yaml`
-
-- **curation**: Object (allowlist + aliases)
-  - **NOTE**: Currently for documentation only - not yet consumed by runtime
-  - Future: Will override defaults from `tool_curation.py`
-  - **allowlist**: List of `[method, path]` tuples
-    - Only these operations will be exposed as MCP tools
-    - Method should be lowercase (get, post, put, patch, delete)
-  - **aliases**: Map of operationId → friendly name
-    - Makes tool names more LLM-friendly
-
-## Using Configurations
-
-### Quick Start: Generate All Specs in One Command
-
-```bash
-# Default (BaSyx)
-python3 scripts/generate_implementation.py
-
-# Specific implementation
-python3 scripts/generate_implementation.py --config configs/faaast-config.yaml
-
-# Dry-run to see what would happen
-python3 scripts/generate_implementation.py --dry-run
-```
-
-### Manual Step-by-Step (Advanced)
-
-#### Step 1: Generate Filter Strings
-
-```bash
-# Default Configuration (BaSyx)
-python3 scripts/generate_filters.py
-
-# Via Environment Variable
-export AAS_IMPLEMENTATION_CONFIG=configs/basyx-config.yaml
-python3 scripts/generate_filters.py
-
-# Via Command-Line Argument
-python3 scripts/generate_filters.py --config configs/basyx-config.yaml
-
-# List Available Configurations
-python3 scripts/generate_filters.py --list-configs
-```
-
-#### Step 2: Generate Derived Specs
-
-```bash
-# Copy the export commands from step 1 output, then:
-export AAS_REPO_FILTER_PATHS="<filter string>"
-python3 scripts/generate_derived_spec.py --component aas-repo
-
-# Repeat for other components
-```
-
-## Creating a New Implementation Configuration
-
-1. **Document the implementation's endpoints**
-   - Export or manually create an OpenAPI spec (JSON or YAML)
-   - Document all paths and HTTP methods supported by the implementation
-   - Save in `docs/` directory (e.g., `docs/myimpl-repo-supported-endpoints.json`)
-
-2. **Create configuration file**
-   - Copy `basyx-config.yaml` as a starting point
-   - Update all `implementation_spec` paths to point to your documentation
-   - Update `name`, `version`, and `description`
-   - Add `overlay` paths if you have custom overlays
-   - Save as `configs/myimpl-config.yaml`
-
-3. **Generate all specs in one command**
+1. **Copy the template:**
    ```bash
-   python3 scripts/generate_implementation.py --config configs/myimpl-config.yaml
+   cp configs/config.yaml.template configs/my-implementation-config.yaml
    ```
 
-4. **(Optional) Create overlays**
-   - Create overlay files in `openapi/overlays/` to customize operation names
-   - See existing overlays for examples
-   - Reference them in your config file's `overlay` field
+2. **Customize the configuration:**
+   - Update `name`, `version`, and `description` for your implementation
+   - Set `implementation_spec` paths to your endpoint documentation
+   - Adjust `path_prefix` values as needed
+   - (Optional) Add overlay paths for customization
+   - (Optional) Add curation settings to control exposed operations
 
-5. **(Optional) Update CLI defaults**
-   - Modify `src/aas_mcp_server/cli.py` to add a new component profile or
-   - Use environment variables to point to your derived specs
+3. **Generate derived specs:**
+   ```bash
+   python3 scripts/generate_implementation.py --config configs/my-implementation-config.yaml
+   ```
 
-## Example: Adding Custom Implementation
+4. **Run MCP server with curation settings:**
+   ```bash
+   aas-mcp-server \
+     --component aas-repo \
+     --base-url http://your-backend:8080 \
+     --config configs/my-implementation-config.yaml
+   ```
+
+## Files
+
+- **`config.yaml.template`** - Generic template for any AAS implementation. Start here.
+- **`basyx-config.example.yaml`** - Example configuration for Eclipse BaSyx v2.0. Reference implementation.
+- **`README.md`** - This file. Configuration documentation.
+
+## Configuration File Structure
 
 ```yaml
-# configs/custom-config.yaml
-name: Custom AAS Implementation
+name: Your Implementation Name
 version: v1.0
-description: My custom AAS server implementation
+description: Brief description
 
 components:
   aas-repo:
-    implementation_spec: docs/custom-repo-endpoints.json
-    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
-    path_prefix: /shells
-    description: Custom AAS Repository
-    overlay: openapi/overlays/custom-aas-repo-overlay.yaml  # Optional
-
-  # ... other components
+    implementation_spec: docs/your-endpoints.json    # What you actually support
+    official_spec: openapi/official-spec.yaml        # Official AAS specification
+    path_prefix: /shells                             # Optional: filter by prefix
+    description: Component description               # Optional
+    overlay: openapi/overlays/custom-overlay.yaml    # Optional: customization
 ```
 
-Then generate all specs:
+### Required Fields
+
+- **`name`**: Human-readable implementation name
+- **`version`**: Version string (e.g., "v1.0")
+- **`description`**: Brief description of the implementation
+
+For each component:
+- **`implementation_spec`**: Path to OpenAPI spec documenting your implementation's endpoints (JSON or YAML)
+- **`official_spec`**: Path to official AAS specification from `openapi/` directory
+
+### Optional Fields
+
+- **`path_prefix`**: Filter implementation spec paths by prefix
+  - Use when one spec file covers multiple components
+  - Example: `/shells` for aas-repo, `/submodels` for submodel-repo
+  - Set to `null` when spec contains only one component
+
+- **`overlay`**: Path to OpenAPI Overlay file for customization
+  - Rename operations for better LLM understanding
+  - Update descriptions and add extensions
+  - See [OpenAPI Overlay Specification](https://github.com/OAI/Overlay-Specification)
+
+- **`curation`**: Allowlist and aliases for tool exposure
+  - **Fully supported!** These settings override the hardcoded defaults in `tool_curation.py`
+  - If omitted, the server uses default values from `tool_curation.py`
+  - Use `--config` flag to load curation settings at runtime
+  ```yaml
+  curation:
+    allowlist:                   # List of [method, path] tuples to expose
+      - [get, /shells]
+      - [post, /shells]
+    aliases:                     # Map operationId to LLM-friendly names
+      GetAllAssetAdministrationShells: list_shells
+  ```
+
+## Supported Components
+
+Configure any combination of these AAS components:
+
+- **`aas-repo`**: Asset Administration Shell Repository
+- **`submodel-repo`**: Submodel Repository
+- **`aas-registry`**: AAS Registry
+- **`submodel-registry`**: Submodel Registry
+
+## Creating Implementation Documentation
+
+Before creating a configuration, you need to document which endpoints your implementation supports:
+
+### Option 1: Export from Implementation
+
+If your implementation can export its OpenAPI specification:
 ```bash
-python3 scripts/generate_implementation.py --config configs/custom-config.yaml
+# Export from your running server
+curl http://your-server:8080/v3/api-docs > docs/your-impl-endpoints.json
 ```
+
+### Option 2: Manual Documentation
+
+Create an OpenAPI spec (JSON or YAML) listing all supported paths and methods:
+
+```json
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "My Implementation Endpoints",
+    "version": "1.0"
+  },
+  "paths": {
+    "/shells": {
+      "get": {},
+      "post": {}
+    },
+    "/shells/{aasIdentifier}": {
+      "get": {},
+      "put": {},
+      "delete": {}
+    }
+  }
+}
+```
+
+Save in `docs/` directory and reference in your config file.
 
 ## Pipeline Overview
 
-The configuration file is used by these scripts:
+The configuration file is used by these tools:
 
-1. **scripts/generate_filters.py**
-   - Reads: `implementation_spec`, `official_spec`, `path_prefix`
-   - Computes intersection of endpoints
-   - Outputs: Filter strings for environment variables
+### 1. Generate All Specs (Recommended)
 
-2. **scripts/generate_derived_spec.py**
-   - Reads: `official_spec`, `overlay` (via env vars or defaults)
-   - Applies path filtering and overlay
-   - Outputs: Derived OpenAPI specs in `openapi/derived/`
+Single command that orchestrates the entire pipeline:
 
-3. **scripts/generate_implementation.py** (Recommended)
-   - Orchestrates steps 1 and 2 automatically
-   - Reads all fields to coordinate the pipeline
-   - One command to generate everything
+```bash
+python3 scripts/generate_implementation.py --config configs/your-config.yaml
 
-4. **src/aas_mcp_server/** (Runtime)
-   - Currently: Uses hardcoded defaults in `tool_curation.py`
-   - Future: Could read `curation` section from config
+# Dry-run to preview
+python3 scripts/generate_implementation.py --config configs/your-config.yaml --dry-run
+```
 
-## Validation
+### 2. Step-by-Step (Advanced)
 
-To validate that your derived specs are up-to-date with config:
+**Step A: Generate Filter Strings**
+```bash
+python3 scripts/generate_filters.py --config configs/your-config.yaml
+```
+This computes the intersection of your implementation with the official spec.
 
+**Step B: Generate Derived Specs**
+```bash
+# Export filter strings from step A output
+export AAS_REPO_FILTER_PATHS="<filter string>"
+export SUBMODEL_REPO_FILTER_PATHS="<filter string>"
+# ... etc
+
+# Generate derived specs
+python3 scripts/generate_derived_spec.py --component aas-repo
+python3 scripts/generate_derived_spec.py --component submodel-repo
+python3 scripts/generate_derived_spec.py --component aas-registry
+python3 scripts/generate_derived_spec.py --component submodel-registry
+```
+
+### 3. Validation
+
+Verify derived specs are up-to-date:
 ```bash
 python3 scripts/validate_derived_specs.py --config configs/your-config.yaml
 ```
 
-(Coming soon)
+## How It Works
 
-## Notes
+1. **Intersection Computation**: Compares your `implementation_spec` with the `official_spec`
+2. **Path Filtering**: Applies `path_prefix` filter if specified
+3. **Overlay Application**: Applies OpenAPI Overlay transformations if provided
+4. **Derived Spec Output**: Writes filtered + customized specs to `openapi/derived/`
 
-- The `path_prefix` is useful when a single implementation spec contains endpoints for multiple components (like BaSyx's combined repo spec)
-- Set `path_prefix: null` when the implementation spec only contains paths for that specific component
-- Configuration files must be valid YAML
-- Implementation specs can be either JSON or YAML format (both are supported)
-- Overlay files follow the [OpenAPI Overlay Specification](https://github.com/OAI/Overlay-Specification)
+The derived specs can then be used with the MCP server:
+```bash
+aas-mcp-server --component aas-repo --openapi openapi/derived/aas-repo-derived.yaml
+```
+
+## Examples
+
+### Example 1: Single Spec Per Component
+
+```yaml
+# Your implementation has separate spec files for each component
+name: Custom Server
+version: v1.0
+
+components:
+  aas-repo:
+    implementation_spec: docs/custom-aas-repo.json
+    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: null  # No filtering needed
+```
+
+### Example 2: Combined Spec with Filtering
+
+```yaml
+# Your implementation has one spec covering multiple components
+name: Unified Server
+version: v2.0
+
+components:
+  aas-repo:
+    implementation_spec: docs/unified-server.json  # Contains /shells and /submodels
+    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: /shells  # Filter to only /shells paths
+
+  submodel-repo:
+    implementation_spec: docs/unified-server.json  # Same spec
+    official_spec: openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: /submodels  # Filter to only /submodels paths
+```
+
+### Example 3: With Overlays
+
+```yaml
+# Customize operation names for better LLM understanding
+name: LLM-Friendly Server
+version: v1.0
+
+components:
+  aas-repo:
+    implementation_spec: docs/server-endpoints.json
+    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    path_prefix: null
+    overlay: openapi/overlays/custom-aas-repo-overlay.yaml  # Rename operations
+```
+
+## Default Behavior
+
+The MCP server defaults to using **official AAS specifications** (unfiltered, full spec). You only need derived specs if:
+- Your implementation supports a **subset** of the official specification
+- You want to **prevent LLMs** from attempting unsupported endpoints
+- You want to **customize** operation names and descriptions via overlays
+
+## Troubleshooting
+
+### "No paths match the intersection"
+- Check that `implementation_spec` path is correct
+- Verify `path_prefix` matches your spec's paths
+- Ensure `implementation_spec` contains OpenAPI format with `paths` key
+
+### "Overlay file not found"
+- Check overlay path is relative to project root
+- Verify overlay file exists at specified path
+- Overlay is optional - remove the line if not needed
+
+### "Invalid YAML format"
+- Validate YAML syntax (indentation matters!)
+- Use a YAML validator or linter
+- Check for special characters that need quoting
+
+## Additional Resources
+
+- **Official AAS Specifications**: `openapi/` directory
+- **Overlay Examples**: `openapi/overlays/` directory
+- **BaSyx Endpoint Documentation**: `docs/basyx-*-supported-endpoints.json`
+- **Script Documentation**: See `scripts/` directory README files
+
+## Migration from Previous Versions
+
+If you have an old `basyx-config.yaml` file:
+1. Rename it to indicate it's implementation-specific (e.g., `basyx-config.example.yaml`)
+2. Create new configs based on `config.yaml.template` for your implementations
+3. Update any references in scripts or documentation

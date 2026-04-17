@@ -8,6 +8,8 @@ This module orchestrates the complete MCP server construction pipeline:
 4. Generate FastMCP server from curated OpenAPI spec
 """
 
+from typing import Any, Dict, Optional
+
 from fastmcp import FastMCP
 from .openapi_loader import load_and_process_openapi
 from .http_client import build_async_client
@@ -28,6 +30,7 @@ def build_mcp_server(
         enable_writes: bool,
         log_level: str = DEFAULT_LOG_LEVEL,
         component_name: str = DEFAULT_COMPONENT_NAME,
+        curation_settings: Optional[Dict[str, Any]] = None,
 ) -> FastMCP:
     """
     Build and configure an MCP server for AAS components.
@@ -38,6 +41,8 @@ def build_mcp_server(
         enable_writes: Whether to enable write operations (POST/PUT/PATCH/DELETE)
         log_level: Logging level (default: INFO)
         component_name: Name of the AAS component (default: aas-repo)
+        curation_settings: Optional dict with 'allowlist' and/or 'aliases' keys
+                          If None, uses hardcoded defaults from tool_curation.py
 
     Returns:
         Configured FastMCP server instance
@@ -48,7 +53,7 @@ def build_mcp_server(
     spec = load_and_process_openapi(openapi_path, component_name)
 
     # Curate tool surface area (rename, filter, readonly-by-default)
-    curated = curate_openapi_spec(spec, enable_writes=enable_writes)
+    curated = curate_openapi_spec(spec, enable_writes=enable_writes, curation_settings=curation_settings)
 
     client = build_async_client(base_url=base_url)
 
