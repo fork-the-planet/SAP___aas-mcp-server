@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Validate that derived OpenAPI specs are up-to-date with their source configuration.
 

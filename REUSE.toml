@@ -1,0 +1,47 @@
+version = 1
+
+[package]
+supplier = "SAP SE"
+repository = "https://github.com/SAP/aas-mcp-server"
+
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors
+# SPDX-License-Identifier: Apache-2.0
+
+[[annotations]]
+path = [
+    "README.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CLAUDE.md",
+    "QUICKSTART.md",
+    "pyproject.toml",
+    "uv.lock",
+    ".gitignore",
+    "Dockerfile",
+    "claude_desktop_config.example.json",
+    ".github/**",
+    "configs/**",
+    "docs/**",
+    "openapi/**",
+    "scripts/**",
+    "src/**",
+    "tests/**",
+]
+SPDX-FileCopyrightText = "2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = ".venv/**"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ".idea/**"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ".pytest_cache/**"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"

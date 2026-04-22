@@ -4,7 +4,33 @@ version = "0.1.0"
 description = "Open-source MCP server for AAS (Asset Administration Shell) APIs using OpenAPI"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "SAP SE", email = "ospo@sap.com" }
+]
+maintainers = [
+    { name = "SAP SE", email = "ospo@sap.com" }
+]
+keywords = [
+    "aas",
+    "asset-administration-shell",
+    "mcp",
+    "model-context-protocol",
+    "openapi",
+    "llm",
+    "digital-twin",
+    "industry-4.0"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Networking",
+    "Topic :: Scientific/Engineering",
+]
 dependencies = [
     "fastmcp>=3.0.0b2",
     "httpx>=0.28.1",
@@ -12,6 +38,13 @@ dependencies = [
     "oas-patch>=0.5.6",
     "pyyaml>=6.0.3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SAP/aas-mcp-server"
+Documentation = "https://github.com/SAP/aas-mcp-server#readme"
+Repository = "https://github.com/SAP/aas-mcp-server"
+Issues = "https://github.com/SAP/aas-mcp-server/issues"
+Changelog = "https://github.com/SAP/aas-mcp-server/blob/main/CHANGELOG.md"
 
 [project.scripts]
 aas-mcp-server = "aas_mcp_server.cli:main"

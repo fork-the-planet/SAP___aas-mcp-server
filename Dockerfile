@@ -8,4 +8,12 @@ COPY openapi /app/openapi
 RUN pip install --no-cache-dir .
 
 ENV MCP_TRANSPORT=stdio
-CMD ["aas-mcp", "--base-url", "http://host.docker.internal:8080", "--openapi", "openapi/openapi.resolved.yaml"]
+# Default component is aas-repo, override with --build-arg COMPONENT=<component-name>
+# or set via docker run environment variables
+ARG COMPONENT=aas-repo
+ARG BASE_URL=http://host.docker.internal:8080
+
+ENV AAS_COMPONENT=${COMPONENT}
+ENV AAS_BASE_URL=${BASE_URL}
+
+CMD ["sh", "-c", "aas-mcp-server --component ${AAS_COMPONENT} --base-url ${AAS_BASE_URL}"]

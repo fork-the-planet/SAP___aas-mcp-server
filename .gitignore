@@ -159,5 +159,9 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
+# MCP
+.claude
+.playwright-mcp
+
 *.DS_Store
 **/.DS_Store

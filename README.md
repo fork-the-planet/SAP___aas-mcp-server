@@ -420,9 +420,60 @@ aas-mcp-server --component aas-repo --base-url http://localhost:8080
 | `scripts/generate_implementation.py` | One-command spec generation |
 | `docker-compose.yaml` | Reference backend for testing |
 
+## Security
+
+### Authentication
+
+The MCP server supports optional authentication for AAS backend services:
+
+```bash
+# Bearer token authentication
+export AAS_TOKEN="your-bearer-token"
+aas-mcp-server --component aas-repo --base-url https://your-backend:8080
+
+# API key authentication
+export AAS_API_KEY="your-api-key"
+aas-mcp-server --component aas-repo --base-url https://your-backend:8080
+
+# Custom API key header
+export AAS_API_KEY="your-api-key"
+export AAS_API_KEY_HEADER="X-Custom-API-Key"
+aas-mcp-server --component aas-repo --base-url https://your-backend:8080
+```
+
+**Security Best Practices:**
+- Never commit credentials to version control
+- Use environment variables for sensitive data
+- Use HTTPS (not HTTP) for authenticated requests
+- Store credentials in secure credential management systems
+- Rotate credentials regularly
+
+### Read-Only by Default
+
+**Write operations (POST/PUT/PATCH/DELETE) are disabled by default** to prevent accidental data modifications.
+
+```bash
+# Safe: Read-only mode (default)
+aas-mcp-server --component aas-repo --base-url http://backend:8080
+
+# Enable writes (use with caution)
+aas-mcp-server --component aas-repo --base-url http://backend:8080 --enable-writes
+```
+
+### Security Features
+
+✅ No hardcoded credentials  
+✅ Read-only by default  
+✅ OpenAPI schema validation  
+✅ No code execution (eval/exec)  
+✅ No SQL injection vectors  
+✅ Secure dependency usage
+
 ## License
 
-[Your License Here]
+Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+
+Copyright 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available via the [REUSE tool](https://api.reuse.software/info/github.com/SAP/aas-mcp-server).
 
 ## Contributing
 
@@ -432,3 +483,9 @@ Contributions welcome! To add support for a new AAS implementation:
 2. Create a configuration in `configs/` (use `config.yaml.template` as base)
 3. Generate derived specs with `scripts/generate_implementation.py`
 4. Submit a PR with the new specs and configuration
+
+Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## Code of Conduct
+
+This project adheres to the [SAP Open Source Code of Conduct](https://github.com/SAP/.github/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to ospo@sap.com.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Library for generating derived OpenAPI specs with path filtering and overlay applied.
 
