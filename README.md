@@ -345,6 +345,125 @@ python3 scripts/generate_implementation.py --config configs/your-config.yaml
 python3 scripts/validate_derived_specs.py
 ```
 
+## Docker
+
+### Building the Image
+
+```bash
+# Build with default component (aas-repo)
+docker build -t aas-mcp-server .
+
+# Build for specific component
+docker build --build-arg COMPONENT=submodel-repo -t aas-mcp-server:submodel-repo .
+docker build --build-arg COMPONENT=aas-registry -t aas-mcp-server:aas-registry .
+docker build --build-arg COMPONENT=submodel-registry -t aas-mcp-server:submodel-registry .
+```
+
+### Running the Container
+
+**Default (AAS Repository)**
+```bash
+docker run -e AAS_BASE_URL=http://host.docker.internal:8080 aas-mcp-server
+```
+
+**Override Component at Runtime**
+```bash
+# Submodel Repository
+docker run \
+  -e AAS_COMPONENT=submodel-repo \
+  -e AAS_BASE_URL=http://host.docker.internal:8081 \
+  aas-mcp-server
+
+# AAS Registry
+docker run \
+  -e AAS_COMPONENT=aas-registry \
+  -e AAS_BASE_URL=http://host.docker.internal:8083 \
+  aas-mcp-server
+
+# Submodel Registry
+docker run \
+  -e AAS_COMPONENT=submodel-registry \
+  -e AAS_BASE_URL=http://host.docker.internal:8084 \
+  aas-mcp-server
+```
+
+**With Custom OpenAPI Spec**
+```bash
+docker run \
+  -v $(pwd)/openapi:/app/openapi \
+  -e AAS_COMPONENT=aas-repo \
+  -e AAS_BASE_URL=http://host.docker.internal:8080 \
+  -e AAS_OPENAPI_PATH=/app/openapi/custom-spec.yaml \
+  aas-mcp-server
+```
+
+**Enable Write Operations**
+```bash
+docker run \
+  -e AAS_COMPONENT=aas-repo \
+  -e AAS_BASE_URL=http://host.docker.internal:8080 \
+  -e AAS_MCP_ENABLE_WRITES=1 \
+  aas-mcp-server
+```
+
+### Docker Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `AAS_COMPONENT` | Component to serve (aas-repo, submodel-repo, aas-registry, submodel-registry) | `aas-repo` |
+| `AAS_BASE_URL` | Backend server URL | `http://host.docker.internal:8080` |
+| `AAS_OPENAPI_PATH` | Custom OpenAPI spec path | Component default |
+| `AAS_MCP_ENABLE_WRITES` | Enable write operations (set to "1") | Not set (read-only) |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `MCP_TRANSPORT` | Transport protocol | `stdio` |
+
+### Docker Compose Example
+
+```yaml
+version: '3.8'
+
+services:
+  aas-repo:
+    build: .
+    environment:
+      - AAS_COMPONENT=aas-repo
+      - AAS_BASE_URL=http://backend:8080
+    depends_on:
+      - backend
+
+  submodel-repo:
+    build: .
+    environment:
+      - AAS_COMPONENT=submodel-repo
+      - AAS_BASE_URL=http://backend:8081
+    depends_on:
+      - backend
+
+  aas-registry:
+    build: .
+    environment:
+      - AAS_COMPONENT=aas-registry
+      - AAS_BASE_URL=http://backend:8083
+    depends_on:
+      - backend
+
+  submodel-registry:
+    build: .
+    environment:
+      - AAS_COMPONENT=submodel-registry
+      - AAS_BASE_URL=http://backend:8084
+    depends_on:
+      - backend
+
+  backend:
+    image: your-aas-backend:latest
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8083:8083"
+      - "8084:8084"
+```
+
 ## Project Structure
 
 ```

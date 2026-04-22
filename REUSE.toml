@@ -15,6 +15,7 @@ path = [
     "SECURITY.md",
     "CLAUDE.md",
     "QUICKSTART.md",
+    "SAP_COMPLIANCE_FINAL.md",
     "pyproject.toml",
     "uv.lock",
     ".gitignore",
