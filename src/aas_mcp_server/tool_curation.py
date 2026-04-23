@@ -57,6 +57,40 @@ OPERATION_ID_ALIASES = {
 }
 
 
+def _matches_allowlist_pattern(method: str, path: str, allowlist: Set[Tuple[str, str]]) -> bool:
+    """
+    Check if a method/path combination matches any pattern in the allowlist.
+
+    Supports wildcards:
+    - (*, path) - All methods for a specific path
+    - (method, *) - A specific method for all paths
+    - (*, *) - All methods for all paths
+
+    Args:
+        method: HTTP method (lowercase, e.g., 'get', 'post')
+        path: URL path (e.g., '/shells', '/shells/{aasIdentifier}')
+        allowlist: Set of (method, path) tuples, may include wildcards
+
+    Returns:
+        True if the method/path matches any allowlist pattern
+    """
+    # Exact match
+    if (method, path) in allowlist:
+        return True
+
+    # Wildcard matches
+    if ('*', path) in allowlist:  # All methods for this path
+        return True
+
+    if (method, '*') in allowlist:  # This method for all paths
+        return True
+
+    if ('*', '*') in allowlist:  # All methods for all paths
+        return True
+
+    return False
+
+
 def curate_openapi_spec(
     spec: Dict[str, Any],
     enable_writes: bool,
@@ -66,28 +100,47 @@ def curate_openapi_spec(
     Curate OpenAPI spec for MCP tool generation.
 
     Applies the following transformations:
-    1. Allowlist filtering - only expose specific operations
+    1. Allowlist filtering - only expose specific operations (supports wildcards)
     2. Read-only enforcement - block write operations unless enabled
     3. Operation ID aliasing - rename to LLM-friendly names
     4. Limit parameter capping - prevent excessive pagination
+
+    Wildcard support in allowlist:
+    - [*, /shells] - All methods for /shells path
+    - [get, *] - GET method for all paths
+    - [*, *] - All methods for all paths (use with caution!)
 
     Args:
         spec: OpenAPI specification dictionary
         enable_writes: Whether to allow write operations (POST/PUT/PATCH/DELETE)
         curation_settings: Optional dict with:
-            - 'allowlist': Set of (method, path) tuples to expose
+            - 'allowlist': Set of (method, path) tuples to expose (or list of [method, path] lists)
+                          Supports wildcards: '*' for method or path
             - 'aliases': Dict mapping operationId -> friendly name
             If None, uses DEFAULT_ALLOWLIST and OPERATION_ID_ALIASES
 
     Returns:
         Curated OpenAPI specification
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"=== Starting curation (enable_writes={enable_writes}) ===")
+
     # Use custom curation settings or fall back to defaults
-    allowlist = (
+    raw_allowlist = (
         curation_settings.get('allowlist', DEFAULT_ALLOWLIST)
         if curation_settings
         else DEFAULT_ALLOWLIST
     )
+
+    # Convert allowlist from YAML format (list of lists) to set of tuples
+    if isinstance(raw_allowlist, list):
+        allowlist = {tuple(item) for item in raw_allowlist}
+        logger.debug(f"Converted allowlist from list to set: {len(allowlist)} entries")
+    else:
+        allowlist = raw_allowlist
+
     aliases = (
         curation_settings.get('aliases', OPERATION_ID_ALIASES)
         if curation_settings
@@ -99,6 +152,10 @@ def curate_openapi_spec(
     paths = out.get(OPENAPI_KEY_PATHS, {})
     new_paths: Dict[str, Any] = {}
 
+    logger.debug(f"Starting curation with {len(paths)} paths")
+    logger.debug(f"Allowlist has {len(allowlist)} entries: {allowlist}")
+    logger.debug(f"Write operations enabled: {enable_writes}")
+
     for path, path_item in paths.items():
         new_item: Dict[str, Any] = {}
         for method, op in (path_item or {}).items():
@@ -106,14 +163,17 @@ def curate_openapi_spec(
             if m not in VALID_METHODS:
                 continue
 
-            # 1) Allowlist filter (keeps tool surface stable)
-            if (m, path) not in allowlist:
+            # 1) Allowlist filter (keeps tool surface stable, supports wildcards)
+            if not _matches_allowlist_pattern(m, path, allowlist):
+                logger.debug(f"Filtered out by allowlist: {m.upper()} {path}")
                 continue
 
             # 2) Readonly-by-default safety gate
             if (m in WRITE_METHODS) and not enable_writes:
+                logger.debug(f"Filtered out by write protection: {m.upper()} {path}")
                 continue
 
+            logger.debug(f"✓ Allowed: {m.upper()} {path}")
             op = dict(op or {})
 
             # 3) Rename tool via operationId aliasing (LLM-friendly)

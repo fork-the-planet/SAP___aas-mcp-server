@@ -1,610 +1,165 @@
 # AAS MCP Server
 
-**OpenAPI-to-MCP adapter for Asset Administration Shell (AAS) APIs.**
+> OpenAPI-to-MCP bridge for Asset Administration Shell (AAS) APIs
 
-This MCP server acts as a bridge between LLMs and your AAS backend server. It converts OpenAPI specifications into MCP tools, enabling LLMs to interact with AAS services through a safe, curated interface.
+Converts OpenAPI specifications into Model Context Protocol (MCP) tools, enabling LLMs to interact with AAS services.
 
-**Pure Adapter Pattern**: This server doesn't bundle any AAS backend implementation. You provide your own AAS backend (SAP BNAC AAS Server, Eclipse BaSyx, FA³ST Service, or custom), and this server translates LLM requests into HTTP calls to your backend.
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
-## Supported Components
+## 🚀 Quick Start
 
-- **AAS Repository** - Manage Asset Administration Shells
-- **Submodel Repository** - Manage Submodels
-- **AAS Registry** - Discover and register AAS components
-- **Submodel Registry** - Discover and register Submodels
+### Prerequisites
 
-## Prerequisites
+1. **AAS OpenAPI Specifications** - [Download from GitHub](https://github.com/admin-shell-io/aas-specs)
+2. **AAS Backend Server** - Eclipse BaSyx, FA³ST Service, SAP BNAC, etc.
+3. **Python 3.12+** OR **Docker**
 
-You need an AAS backend server running. Options:
+### Setup
 
-1. **Production**: Use your existing SAP BNAC AAS Server, Eclipse BaSyx, FA³ST Service, or custom AAS server
-2. **Development/Testing**: Start a reference backend with Docker Compose (see below)
-
-## Install
-
-```bash
-pip install aas-mcp-server
-```
-
-## Quick Start
-
-### With Existing AAS Backend
-
-Point the MCP server to your backend URL:
-
-```bash
-# AAS Repository
-aas-mcp-server --component aas-repo --base-url http://your-backend:8080
-
-# Submodel Repository
-aas-mcp-server --component submodel-repo --base-url http://your-backend:8081
-
-# AAS Registry
-aas-mcp-server --component aas-registry --base-url http://your-backend:8083
-
-# Submodel Registry
-aas-mcp-server --component submodel-registry --base-url http://your-backend:8084
-```
-
-### For Testing/Development
-
-Start a reference backend with Docker Compose:
-
-```bash
-# Start reference backend
-docker-compose up -d
-
-# Connect MCP server to it
-aas-mcp-server --component aas-repo --base-url http://localhost:8080
-```
-
-## OpenAPI Specifications
-
-**By default**, the server uses the **official AAS OpenAPI specifications** (V3.1.1 SSP-001):
-- Full, unfiltered specs from IDTA/AAS standards
-- Located in `openapi/` directory
-- Works with any AAS-compliant backend
-
-**Example derived specs included**:
-- `openapi/derived/` contains pre-generated example specs
-- These are filtered to match specific implementation capabilities
-- Use these as examples for creating your own derived specs
-
-### Using Different Specifications
-
-**Option 1: Use Default (Official AAS Specs)**
-```bash
-# No additional flags needed - uses official specs by default
-aas-mcp-server --component aas-repo --base-url http://your-backend:8080
-```
-
-**Option 2: Use Example Derived Specs**
-```bash
-# Use pre-generated example spec
-aas-mcp-server \
-  --component aas-repo \
-  --base-url http://your-backend:8080 \
-  --openapi openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml
-```
-
-**Option 3: Generate Your Own Derived Specs**
-
-If your backend doesn't implement all official AAS endpoints, generate a filtered spec:
-
-1. **Document your implementation's endpoints**
+1. **Get AAS Specifications**:
    ```bash
-   # Create docs/your-impl-endpoints.json with your supported endpoints
-   # See docs/ directory for example endpoint documentation files
+   mkdir specs && cd specs
+   # Download from https://github.com/admin-shell-io/aas-specs/tree/main/schemas/openapi
    ```
 
-2. **Create configuration**
-   ```bash
-   cp configs/config.yaml.template configs/my-impl-config.yaml
-   # Edit to point to your implementation docs
+2. **Create config.yaml**:
+   ```yaml
+   components:
+     aas-repo:
+       official_spec: specs/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001.yaml
    ```
 
-3. **Generate derived specs**
+3. **Run**:
    ```bash
-   python3 scripts/generate_implementation.py --config configs/my-impl-config.yaml
+   # Docker (recommended)
+   docker run \
+     -v $(pwd)/config.yaml:/app/config/config.yaml \
+     -v $(pwd)/specs:/app/specs \
+     -e AAS_COMPONENT=aas-repo \
+     -e AAS_BASE_URL=http://your-backend:8080 \
+     -i aas-mcp-server
+
+   # Or install locally
+   pip install -e .
+   aas-mcp-server --component aas-repo --base-url http://localhost:8080 --config config.yaml
    ```
 
-4. **Use your generated spec**
-   ```bash
-   aas-mcp-server \
-     --component aas-repo \
-     --base-url http://your-backend:8080 \
-     --openapi openapi/derived/your-derived-spec.yaml
-   ```
+## 📖 Configuration
 
-See `configs/README.md` for detailed instructions.
+### Basic (Official Spec Only)
 
-## Configuration
-
-### Command-line Arguments
-
-- `--component` (required): Which AAS component to serve
-- `--base-url` (required): URL of your AAS backend server
-- `--openapi`: Custom OpenAPI spec path (default: official AAS spec for component)
-- `--config`: Path to implementation config file (for loading curation settings)
-- `--enable-writes`: Enable write operations (default: read-only)
-- `--log-level`: Logging level (default: INFO)
-- `--transport`: Transport protocol (default: stdio)
-
-### Environment Variables
-
-- `AAS_BASE_URL`: Override the default base URL
-- `AAS_OPENAPI_PATH`: Override the default OpenAPI spec path
-- `AAS_MCP_ENABLE_WRITES`: Set to "1" to enable write operations
-- `LOG_LEVEL`: Set logging level
-- `MCP_TRANSPORT`: Set transport protocol
-
-### Example: Enable Writes
-```bash
-aas-mcp-server --component aas-repo --base-url http://localhost:8080 --enable-writes
-```
-
-### Example: Custom OpenAPI Spec
-```bash
-aas-mcp-server \
-  --component submodel-repo \
-  --base-url http://localhost:8081 \
-  --openapi ./my-custom-spec.yaml
-```
-
-## Claude Desktop Configuration
-
-Add each component separately to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "aas-repo": {
-      "command": "aas-mcp-server",
-      "args": [
-        "--component", "aas-repo",
-        "--base-url", "http://localhost:8080"
-      ]
-    },
-    "submodel-repo": {
-      "command": "aas-mcp-server",
-      "args": [
-        "--component", "submodel-repo",
-        "--base-url", "http://localhost:8081"
-      ]
-    },
-    "aas-registry": {
-      "command": "aas-mcp-server",
-      "args": [
-        "--component", "aas-registry",
-        "--base-url", "http://localhost:8083"
-      ]
-    },
-    "submodel-registry": {
-      "command": "aas-mcp-server",
-      "args": [
-        "--component", "submodel-registry",
-        "--base-url", "http://localhost:8084"
-      ]
-    }
-  }
-}
-```
-
-This allows Claude to access all AAS components simultaneously, each with its own dedicated tool set.
-
-## Supported Implementations
-
-**By default**: Works with any AAS-compliant backend (uses official specs)
-
-**Tested with**:
-- ✅ SAP BNAC AAS Server (example derived specs included)
-- ✅ Eclipse BaSyx (compatible with official specs)
-- ✅ FA³ST Service (compatible with official specs)
-- ✅ Custom implementations (generate your own specs)
-
-## Advanced: Path Filtering & Overlays
-
-You can further customize the API surface at runtime using path filtering and overlays.
-
-### Path Filtering
-
-Filter the OpenAPI spec to include only specific paths and HTTP methods using environment variables:
-
-| Component | Environment Variable |
-|-----------|---------------------|
-| aas-repo | `AAS_REPO_FILTER_PATHS` |
-| submodel-repo | `SUBMODEL_REPO_FILTER_PATHS` |
-| aas-registry | `AAS_REGISTRY_FILTER_PATHS` |
-| submodel-registry | `SUBMODEL_REGISTRY_FILTER_PATHS` |
-
-**Filter Format:**
-- `/path` - include all HTTP methods for this path
-- `/path:get` - include only GET method
-- `/path:get,post` - include GET and POST methods
-- Use semicolon (`;`) to separate multiple path filters
-
-**Examples:**
-```bash
-# Expose only GET /shells
-export AAS_REPO_FILTER_PATHS="/shells:get"
-
-# Expose GET and POST for /shells, only GET for /shells/{aasIdentifier}
-export AAS_REPO_FILTER_PATHS="/shells:get,post;/shells/{aasIdentifier}:get"
-
-aas-mcp-server --component aas-repo --base-url http://localhost:8080
-```
-
-### OpenAPI Overlays
-
-Apply [OpenAPI Overlay](https://github.com/OAI/Overlay-Specification) files to add custom extensions or modify the spec. Place overlay files in `openapi/overlays/` with the naming convention `{component}-overlay.yaml`.
-
-Example overlay (`openapi/overlays/aas-repo-overlay.yaml`):
 ```yaml
-overlay: 1.0.0
-info:
-  title: AAS Repository MCP Extensions
-  version: 1.0.0
-actions:
-  - target: "$.paths['/shells'].get"
-    update:
-      operationId: list_shells
-      summary: List all Asset Administration Shells
-```
-
-## Architecture
-
-This server is a **pure adapter**:
-
-```
-┌─────────┐     MCP      ┌──────────────┐    HTTP     ┌────────────────────────┐
-│   LLM   │ ◄────────► │ AAS MCP      │ ◄─────── │ Your AAS Backend   │
-│ (Claude)│             │ Server       │           │ (SAP BNAC/BaSyx/   │
-└─────────┘             │ (This Repo)  │           │  FA³ST/Custom)     │
-                        └──────────────┘           └────────────────────────┘
-```
-
-**What this server does**:
-- Translates MCP protocol ↔ OpenAPI/HTTP
-- Applies safety rules (read-only by default, allowlists)
-- Provides derived specs for common implementations
-
-**What this server doesn't do**:
-- Run AAS backend (you provide that)
-- Store AAS data (your backend does that)
-- Implement AAS business logic (your backend does that)
-
-### Safety and Curation
-
-The server implements multiple layers of safety:
-
-1. **Read-only by default**: Write operations (POST/PUT/PATCH/DELETE) are blocked unless you explicitly use `--enable-writes`
-
-2. **Allowlist filtering**: Only operations explicitly listed in `DEFAULT_ALLOWLIST` are exposed as MCP tools
-   - Currently hardcoded in `src/aas_mcp_server/tool_curation.py`
-   - Minimal default: Only `GET /shells` is exposed initially
-   - Edit `DEFAULT_ALLOWLIST` to expose additional endpoints
-
-3. **Operation aliasing**: Operations are renamed to be LLM-friendly
-   - Example: `GetAllAssetAdministrationShells` → `list_shells`
-   - Edit `OPERATION_ID_ALIASES` in `tool_curation.py` to customize
-
-4. **Pagination limits**: Query parameters like `limit` are capped at 100 to prevent excessive responses
-
-**Customizing Exposed Operations:**
-
-You can customize which operations are exposed in two ways:
-
-**Option 1: Using Config Files (Recommended)**
-```bash
-# Create a config file with curation settings
-cat > configs/my-curation.yaml <<EOF
 components:
   aas-repo:
-    implementation_spec: docs/my-endpoints.json
-    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    official_spec: specs/aas-repo-spec.yaml
+```
+
+### Filtered (Implementation-Specific)
+
+Filter to only endpoints your backend supports:
+
+```yaml
+components:
+  aas-repo:
+    official_spec: specs/aas-repo-official.yaml
+    implementation_spec: specs/basyx-supported-endpoints.yaml
+```
+
+Result: Only endpoints in **both** specs are exposed (intersection).
+
+### With Curation
+
+Control which operations are exposed:
+
+```yaml
+components:
+  aas-repo:
+    official_spec: specs/aas-repo-spec.yaml
     curation:
       allowlist:
         - [get, /shells]
         - [post, /shells]
-        - [get, /shells/{aasIdentifier}]
+        # Wildcards supported:
+        - [get, "*"]              # All GET operations
+        - [*, /shells]            # All methods on /shells
       aliases:
         GetAllAssetAdministrationShells: list_shells
-        GetAssetAdministrationShellById: get_shell
-EOF
-
-# Run server with config
-aas-mcp-server \
-  --component aas-repo \
-  --base-url http://localhost:8080 \
-  --config configs/my-curation.yaml
 ```
 
-**Option 2: Editing Code Directly**
-1. Edit `src/aas_mcp_server/tool_curation.py`
-2. Add entries to `DEFAULT_ALLOWLIST` (e.g., `(HTTP_METHOD_GET, "/shells/{aasIdentifier}")`)
-3. Add entries to `OPERATION_ID_ALIASES` for friendly names
+See [config.yaml.example](config.yaml.example) for complete options.
 
-*Note: Config files override hardcoded defaults when `--config` is provided.*
+## 🐳 Docker Usage
 
-## Development
+### Basic
 
-```bash
-# Install in editable mode
-pip install -e .
-
-# Run with debug logging
-aas-mcp-server --component aas-repo --base-url http://localhost:8080 --log-level DEBUG
-
-# Run tests
-pytest
-
-# Generate derived specs for new implementation
-python3 scripts/generate_implementation.py --config configs/your-config.yaml
-
-# Validate derived specs
-python3 scripts/validate_derived_specs.py
-```
-
-## Docker
-
-### Building the Image
-
-```bash
-# Build with default component (aas-repo)
-docker build -t aas-mcp-server .
-
-# Build for specific component
-docker build --build-arg COMPONENT=submodel-repo -t aas-mcp-server:submodel-repo .
-docker build --build-arg COMPONENT=aas-registry -t aas-mcp-server:aas-registry .
-docker build --build-arg COMPONENT=submodel-registry -t aas-mcp-server:submodel-registry .
-```
-
-### Running the Container
-
-**Default (AAS Repository)**
-```bash
-docker run -e AAS_BASE_URL=http://host.docker.internal:8080 aas-mcp-server
-```
-
-**Override Component at Runtime**
-```bash
-# Submodel Repository
-docker run \
-  -e AAS_COMPONENT=submodel-repo \
-  -e AAS_BASE_URL=http://host.docker.internal:8081 \
-  aas-mcp-server
-
-# AAS Registry
-docker run \
-  -e AAS_COMPONENT=aas-registry \
-  -e AAS_BASE_URL=http://host.docker.internal:8083 \
-  aas-mcp-server
-
-# Submodel Registry
-docker run \
-  -e AAS_COMPONENT=submodel-registry \
-  -e AAS_BASE_URL=http://host.docker.internal:8084 \
-  aas-mcp-server
-```
-
-**With Custom OpenAPI Spec**
 ```bash
 docker run \
-  -v $(pwd)/openapi:/app/openapi \
+  -v $(pwd)/config.yaml:/app/config/config.yaml \
+  -v $(pwd)/specs:/app/specs \
   -e AAS_COMPONENT=aas-repo \
-  -e AAS_BASE_URL=http://host.docker.internal:8080 \
-  -e AAS_OPENAPI_PATH=/app/openapi/custom-spec.yaml \
-  aas-mcp-server
+  -e AAS_BASE_URL=http://your-backend:8080 \
+  -i aas-mcp-server
 ```
 
-**Enable Write Operations**
+### Custom Config Path
+
 ```bash
 docker run \
+  -v $(pwd)/my-config.yaml:/custom/config.yaml \
+  -v $(pwd)/specs:/app/specs \
+  -e CONFIG_PATH=/custom/config.yaml \
   -e AAS_COMPONENT=aas-repo \
-  -e AAS_BASE_URL=http://host.docker.internal:8080 \
-  -e AAS_MCP_ENABLE_WRITES=1 \
-  aas-mcp-server
+  -e AAS_BASE_URL=http://your-backend:8080 \
+  -i aas-mcp-server
 ```
 
-### Docker Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AAS_COMPONENT` | Component to serve (aas-repo, submodel-repo, aas-registry, submodel-registry) | `aas-repo` |
-| `AAS_BASE_URL` | Backend server URL | `http://host.docker.internal:8080` |
-| `AAS_OPENAPI_PATH` | Custom OpenAPI spec path | Component default |
-| `AAS_MCP_ENABLE_WRITES` | Enable write operations (set to "1") | Not set (read-only) |
-| `LOG_LEVEL` | Logging level | `INFO` |
-| `MCP_TRANSPORT` | Transport protocol | `stdio` |
-
-### Docker Compose Example
-
-```yaml
-version: '3.8'
-
-services:
-  aas-repo:
-    build: .
-    environment:
-      - AAS_COMPONENT=aas-repo
-      - AAS_BASE_URL=http://backend:8080
-    depends_on:
-      - backend
-
-  submodel-repo:
-    build: .
-    environment:
-      - AAS_COMPONENT=submodel-repo
-      - AAS_BASE_URL=http://backend:8081
-    depends_on:
-      - backend
-
-  aas-registry:
-    build: .
-    environment:
-      - AAS_COMPONENT=aas-registry
-      - AAS_BASE_URL=http://backend:8083
-    depends_on:
-      - backend
-
-  submodel-registry:
-    build: .
-    environment:
-      - AAS_COMPONENT=submodel-registry
-      - AAS_BASE_URL=http://backend:8084
-    depends_on:
-      - backend
-
-  backend:
-    image: your-aas-backend:latest
-    ports:
-      - "8080:8080"
-      - "8081:8081"
-      - "8083:8083"
-      - "8084:8084"
-```
-
-## Project Structure
-
-```
-aas-mcp-server/
-├── src/aas_mcp_server/          # MCP server adapter code
-├── openapi/                      # OpenAPI specifications
-│   ├── *.yaml                   # Official AAS specs (default)
-│   ├── derived/                 # Example derived specs
-│   └── overlays/                # Example overlays
-├── configs/                      # Implementation configurations
-│   ├── sap-bnac-config.example.yaml  # SAP BNAC example
-│   ├── config.yaml.template     # Generic template
-│   └── README.md                # Configuration guide
-├── scripts/                      # Spec generation tools
-│   ├── generate_implementation.py   # One-command spec generation
-│   ├── generate_filters.py          # Library: Compute endpoint intersections
-│   ├── generate_derived_spec.py     # Library: Apply filters + overlays
-│   └── validate_derived_specs.py    # Validate specs are up-to-date
-├── docs/                         # Implementation endpoint documentation
-└── docker-compose.yaml          # Reference backend (testing only)
-```
-
-## Quick Reference
-
-### Common Use Cases
-
-**Use Case 1: Production with existing AAS backend (any implementation)**
-```bash
-# Uses default official AAS specs (works with any compliant backend)
-aas-mcp-server --component aas-repo --base-url http://your-backend:8080
-```
-
-**Use Case 2: Production with specific backend (optimized)**
-```bash
-# Uses backend-specific derived spec (filtered to supported endpoints)
-aas-mcp-server \
-  --component aas-repo \
-  --base-url http://your-backend:8080 \
-  --openapi openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml
-```
-
-**Use Case 3: Custom backend (generate your own spec)**
-```bash
-# 1. Document your endpoints: docs/my-impl-endpoints.json
-# 2. Create config: configs/my-impl-config.yaml
-# 3. Generate specs:
-python3 scripts/generate_implementation.py --config configs/my-impl-config.yaml
-
-# 4. Use generated spec:
-aas-mcp-server \
-  --component aas-repo \
-  --base-url http://your-backend:8080 \
-  --openapi openapi/derived/your-derived-spec.yaml
-```
-
-**Use Case 4: Development/Testing (no backend yet)**
-```bash
-# Start reference backend
-docker-compose up -d
-
-# Connect MCP server
-aas-mcp-server --component aas-repo --base-url http://localhost:8080
-```
-
-### Key Files
-
-| File/Directory | Purpose |
-|----------------|---------|
-| `openapi/*.yaml` | Official AAS specs (default) |
-| `openapi/derived/` | Example derived specs |
-| `configs/sap-bnac-config.example.yaml` | Example configuration |
-| `configs/config.yaml.template` | Generic template for any implementation |
-| `scripts/generate_implementation.py` | One-command spec generation |
-| `docker-compose.yaml` | Reference backend for testing |
-
-## Security
-
-### Authentication
-
-The MCP server supports optional authentication for AAS backend services:
+### Multiple Volume Mounts
 
 ```bash
-# Bearer token authentication
-export AAS_TOKEN="your-bearer-token"
-aas-mcp-server --component aas-repo --base-url https://your-backend:8080
-
-# API key authentication
-export AAS_API_KEY="your-api-key"
-aas-mcp-server --component aas-repo --base-url https://your-backend:8080
-
-# Custom API key header
-export AAS_API_KEY="your-api-key"
-export AAS_API_KEY_HEADER="X-Custom-API-Key"
-aas-mcp-server --component aas-repo --base-url https://your-backend:8080
+docker run \
+  -v $(pwd)/config.yaml:/app/config/config.yaml \
+  -v $(pwd)/specs:/app/specs \
+  -v $(pwd)/overlays:/app/overlays \
+  -e AAS_COMPONENT=aas-repo \
+  -e AAS_BASE_URL=http://your-backend:8080 \
+  -i aas-mcp-server
 ```
 
-**Security Best Practices:**
-- Never commit credentials to version control
-- Use environment variables for sensitive data
-- Use HTTPS (not HTTP) for authenticated requests
-- Store credentials in secure credential management systems
-- Rotate credentials regularly
+## 🎯 Supported Components
 
-### Read-Only by Default
+- `aas-repo` - Asset Administration Shell Repository
+- `submodel-repo` - Submodel Repository  
+- `aas-registry` - AAS Registry
+- `submodel-registry` - Submodel Registry
 
-**Write operations (POST/PUT/PATCH/DELETE) are disabled by default** to prevent accidental data modifications.
+## 📚 Documentation
 
-```bash
-# Safe: Read-only mode (default)
-aas-mcp-server --component aas-repo --base-url http://backend:8080
+- [config.yaml.example](config.yaml.example) - Complete configuration template
+- [CLAUDE.md](CLAUDE.md) - Architecture guide
+- [docs/TESTING_COMPREHENSIVE.md](docs/TESTING_COMPREHENSIVE.md) - Testing guide
 
-# Enable writes (use with caution)
-aas-mcp-server --component aas-repo --base-url http://backend:8080 --enable-writes
-```
+## 🔐 Security
 
-### Security Features
+- **Read-only by default** - Write operations disabled unless `--enable-writes`
+- **Allowlist-based** - Only explicitly allowed operations exposed
+- **Pagination limits** - Max 100 items per request
 
-✅ No hardcoded credentials  
-✅ Read-only by default  
-✅ OpenAPI schema validation  
-✅ No code execution (eval/exec)  
-✅ No SQL injection vectors  
-✅ Secure dependency usage
+## 🆘 Troubleshooting
 
-## License
+### "Configuration file not found"
 
-Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+**Provide config via**:
+- `--config /path/to/config.yaml`
+- `CONFIG_PATH` environment variable
+- Default: `/app/config/config.yaml`
 
-Copyright 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available via the [REUSE tool](https://api.reuse.software/info/github.com/SAP/aas-mcp-server).
+### "official_spec file not found"
 
-## Contributing
+**Check**:
+- Paths in config.yaml are correct
+- Specs are mounted (Docker): `-v $(pwd)/specs:/app/specs`
 
-Contributions welcome! To add support for a new AAS implementation:
+## 📄 License
 
-1. Document the implementation's supported endpoints in `docs/`
-2. Create a configuration in `configs/` (use `config.yaml.template` as base)
-3. Generate derived specs with `scripts/generate_implementation.py`
-4. Submit a PR with the new specs and configuration
-
-Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
-
-## Code of Conduct
-
-This project adheres to the [SAP Open Source Code of Conduct](https://github.com/SAP/.github/blob/main/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to ospo@sap.com.
+Apache License 2.0 - See [LICENSE](LICENSE)

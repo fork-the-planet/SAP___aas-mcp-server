@@ -25,11 +25,11 @@ description: Example configuration for SAP BNAC AAS Server implementation
 
 components:
   aas-repo:
-    implementation_spec: docs/sap-bnac-aas-repo-supported-endpoints.json
-    official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    implementation_spec: ../docs/sap-bnac-aas-repo-supported-endpoints.json
+    official_spec: ../docs/openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
     path_prefix: null
     description: Asset Administration Shell Repository
-    overlay: openapi/overlays/aas-repo-overlay.yaml
+    overlay: ../docs/overlays/aas-repo-overlay.yaml
 
     # Example curation settings
     curation:
@@ -47,11 +47,11 @@ components:
         DeleteAssetAdministrationShellById: delete_shell
 
   submodel-repo:
-    implementation_spec: docs/sap-bnac-submodel-repo-supported-endpoints.json
-    official_spec: openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
+    implementation_spec: ../docs/sap-bnac-submodel-repo-supported-endpoints.json
+    official_spec: ../docs/openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
     path_prefix: null
     description: Submodel Repository
-    overlay: openapi/overlays/submodel-repo-overlay.yaml
+    overlay: ../docs/overlays/submodel-repo-overlay.yaml
 
 # Notes:
 # - Set path_prefix to null when the implementation spec only contains paths for that component

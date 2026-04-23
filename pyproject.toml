@@ -49,6 +49,14 @@ Changelog = "https://github.com/SAP/aas-mcp-server/blob/main/CHANGELOG.md"
 [project.scripts]
 aas-mcp-server = "aas_mcp_server.cli:main"
 
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Include files specified in MANIFEST.in
+include-package-data = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

@@ -163,5 +163,23 @@ fabric.properties
 .claude
 .playwright-mcp
 
+# Test files (keep unit tests in tests/ directory)
+test_*.py
+test_*.sh
+docker-compose.yml
+
+# User-provided configuration and specs
+# (Users manage these themselves, not tracked in repo)
+config.yaml
+config/
+specs/
+openapi/
+overlays/
+impl-specs/
+
+# Keep example configs
+!config.yaml.example
+!configs/
+
 *.DS_Store
 **/.DS_Store

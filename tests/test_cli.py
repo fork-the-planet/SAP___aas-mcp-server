@@ -96,8 +96,9 @@ class TestMain:
             log_level=DEFAULT_LOG_LEVEL,
             component_name="aas-repo",
             curation_settings=None,
+            transport=DEFAULT_TRANSPORT,
         )
-        mock_mcp.run.assert_called_once_with(transport=DEFAULT_TRANSPORT)
+        mock_mcp.run.assert_called_once_with(transport=DEFAULT_TRANSPORT, show_banner=False)
 
     @patch("aas_mcp_server.cli.build_mcp_server")
     @patch("sys.argv", ["aas-mcp-server", "--component", "aas-repo", "--base-url", "http://custom:9000"])

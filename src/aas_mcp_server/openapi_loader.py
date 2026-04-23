@@ -57,9 +57,39 @@ COMPONENT_FILTER_ENV_VARS = {
 
 
 def load_openapi_yaml(path: str) -> dict[str, Any]:
-    """Load an OpenAPI YAML file."""
-    with open(path, "r", encoding=FILE_ENCODING) as f:
-        return yaml.safe_load(f)
+    """
+    Load an OpenAPI YAML file.
+
+    If the path is relative, it's resolved by checking multiple locations:
+    1. Current working directory (for Docker, usually /app)
+    2. Project root (parent of parent of package dir, for local development)
+    """
+    path_obj = Path(path)
+
+    # If path is absolute, use it directly
+    if path_obj.is_absolute():
+        with open(path_obj, "r", encoding=FILE_ENCODING) as f:
+            return yaml.safe_load(f)
+
+    # Try multiple locations for relative paths
+    locations_to_try = [
+        # 1. Current working directory (works in Docker when WORKDIR is /app)
+        Path.cwd() / path,
+        # 2. Project root (works in local development)
+        Path(__file__).parent.parent.parent / path,
+    ]
+
+    for location in locations_to_try:
+        if location.exists():
+            with open(location, "r", encoding=FILE_ENCODING) as f:
+                return yaml.safe_load(f)
+
+    # If not found, raise error with helpful message
+    tried_paths = "\n  - ".join(str(loc) for loc in locations_to_try)
+    raise FileNotFoundError(
+        f"OpenAPI spec not found: {path}\n"
+        f"Tried locations:\n  - {tried_paths}"
+    )
 
 
 def parse_path_filter(filter_str: str) -> tuple[str, list[str] | None]:
@@ -189,6 +219,8 @@ def get_overlay_path(component_name: str, base_dir: str = DEFAULT_OVERLAY_DIR) -
     """
     Get the overlay file path for a component if it exists.
 
+    Checks multiple locations for the overlay directory.
+
     Args:
         component_name: Name of the component (e.g., 'aas-repo')
         base_dir: Base directory for overlay files
@@ -196,10 +228,26 @@ def get_overlay_path(component_name: str, base_dir: str = DEFAULT_OVERLAY_DIR) -
     Returns:
         Path to overlay file if it exists, None otherwise
     """
+    base_path = Path(base_dir)
+
+    # Try multiple locations for relative paths
+    if not base_path.is_absolute():
+        locations_to_try = [
+            # 1. Current working directory (Docker)
+            Path.cwd() / base_dir,
+            # 2. Project root (local development)
+            Path(__file__).parent.parent.parent / base_dir,
+        ]
+    else:
+        locations_to_try = [base_path]
+
     overlay_filename = OVERLAY_FILE_PATTERN.format(component_name=component_name)
-    overlay_path = Path(base_dir) / overlay_filename
-    if overlay_path.exists():
-        return overlay_path
+
+    for location in locations_to_try:
+        overlay_path = location / overlay_filename
+        if overlay_path.exists():
+            return overlay_path
+
     return None
 
 

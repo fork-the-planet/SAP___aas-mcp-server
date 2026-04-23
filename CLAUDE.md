@@ -7,9 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AAS MCP Server is an OpenAPI-to-MCP bridge for Asset Administration Shell (AAS) APIs. It converts OpenAPI specifications into Model Context Protocol (MCP) tools, enabling LLMs to interact with AAS services through a safe, curated interface.
 
 **Key Architecture Principles**:
-1. **Pure Adapter Pattern**: The server doesn't bundle any AAS backend implementation. Users provide their own AAS backend (BaSyx, FA³ST, custom, etc.), and this server translates LLM requests into HTTP calls.
+1. **Pure Adapter Pattern**: The server doesn't bundle any AAS backend implementation. Users provide their own AAS backend (SAP BNAC AAS Server, Eclipse BaSyx, FA³ST Service, or custom), and this server translates LLM requests into HTTP calls.
 2. **Single Codebase, Multi-Component**: One CLI, multiple AAS components (repositories and registries), each with its own OpenAPI spec and default configuration.
-3. **Default: Official Specs**: By default, uses full official AAS specifications. Derived specs are provided as examples for specific implementations (BaSyx).
+3. **Default: Official Specs**: By default, uses full official AAS specifications. Derived specs are provided as examples for specific implementations.
 
 ## Component Architecture
 
@@ -27,7 +27,7 @@ Each component has:
 
 **OpenAPI Specification Strategy**:
 - **Default**: Official AAS OpenAPI specs (V3.1.1 SSP-001) - full, unfiltered
-- **Examples**: Derived specs in `openapi/derived/` for Eclipse BaSyx v2.0
+- **Examples**: Derived specs in `openapi/derived/` for specific implementations
 - **User Choice**: Users can generate their own derived specs for their implementation (see "Derived Specs and Implementation Filtering" below)
 
 ## Core Processing Pipeline
@@ -43,8 +43,8 @@ The architecture separates **build-time** spec generation from **runtime** spec 
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────┐
-│ Implementation Config│  configs/basyx-config.yaml
-│ (BaSyx, FA³ST, etc.) │  - implementation_spec (what's actually supported)
+│ Implementation Config│  configs/sap-bnac-config.example.yaml (example)
+│ (Various impls)      │  - implementation_spec (what's actually supported)
 └──────────┬───────────┘  - official_spec (full AAS spec)
            │              - overlay (renames for LLMs)
            ▼
@@ -104,7 +104,7 @@ The architecture separates **build-time** spec generation from **runtime** spec 
 - Implementation adds/removes endpoint support
 - You want to expose different operations
 - Overlay names need updating
-- Switching to a different implementation (BaSyx → FA³ST)
+- Switching to a different implementation
 
 **Quick regeneration:**
 ```bash
@@ -122,13 +122,42 @@ python3 scripts/validate_derived_specs.py
 
 | Stage | When | Purpose | Tools |
 |-------|------|---------|-------|
-| **Build-Time** | Before deployment, after config changes | Generate filtered specs from implementation configs | `generate_filters.py`, `generate_derived_spec.py`, `generate_implementation.py` |
+| **Build-Time** | Before deployment, after config changes | Generate filtered specs from implementation configs | `generate_implementation.py` (orchestrator)<br>`generate_filters.py` (library + diagnostic CLI)<br>`generate_derived_spec.py` (library) |
 | **Runtime** | Every MCP server start | Apply safety rules and generate MCP tools | `openapi_loader.py`, `tool_curation.py`, `server.py` |
 
 **Why separate?**
 - **Performance**: Filtering at build-time means faster startup
 - **Inspectability**: Derived specs can be version-controlled and reviewed
 - **Flexibility**: Runtime can still apply additional filters/overlays if needed
+
+## Scripts Architecture
+
+### Production Workflow (Automated)
+- **`generate_implementation.py`** - Main orchestrator tool
+  - Generates all derived specs in one command
+  - Calls library functions from generate_filters.py and generate_derived_spec.py
+  - Use this for normal development and production builds
+
+### Diagnostic Tools (Manual Analysis)
+- **`generate_filters.py`** - Analysis and debugging tool
+  - **Library function**: `generate_filters()` - Called by generate_implementation.py
+  - **CLI interface**: Standalone diagnostic tool with these features:
+    - `--list-configs` - Discover available implementation configurations
+    - Detailed intersection analysis - See exactly which endpoints are supported
+    - Statistics output - Path counts, operation counts per component
+    - Use when troubleshooting why certain endpoints aren't appearing in derived specs
+  - Example: `python3 scripts/generate_filters.py --config configs/my-config.yaml`
+
+- **`validate_derived_specs.py`** - Validation tool
+  - Verifies derived specs are up-to-date with their source configuration
+  - Checks for consistency between config and generated files
+  - Example: `python3 scripts/validate_derived_specs.py --config configs/my-config.yaml`
+
+**When to use which tool:**
+- **Normal workflow**: Run `generate_implementation.py` (one command, all specs)
+- **Debugging filters**: Run `generate_filters.py` to see detailed intersection analysis
+- **Discovery**: Run `generate_filters.py --list-configs` to find available configs
+- **Validation**: Run `validate_derived_specs.py` after manual spec changes
 
 ### Stage Details
 
@@ -139,14 +168,18 @@ python3 scripts/validate_derived_specs.py
    - Points to implementation and official specs
    - Specifies overlays for renaming
 
-2. **Filter Generation** (`scripts/generate_filters.py`)
+2. **Filter Generation** (`scripts/generate_filters.py` - library + diagnostic CLI)
    - Computes intersection: official spec ∩ implementation spec
    - Outputs filter strings (which paths/methods to keep)
+   - Called as library function by `generate_implementation.py`
+   - Can run standalone for analysis and debugging
 
-3. **Derived Spec Generation** (`scripts/generate_derived_spec.py`)
+3. **Derived Spec Generation** (`scripts/generate_derived_spec.py` - pure library)
    - Applies filters to official spec (keeps only supported endpoints)
    - Applies overlays (renames operationIds for LLM understanding)
    - Writes to `openapi/derived/*.yaml`
+   - Called internally by `generate_implementation.py`
+   - Can also be imported as a library for custom workflows
 
 #### Runtime: MCP Tool Generation
 
@@ -178,19 +211,13 @@ Safety-focused transformations:
 
 **By default**, the MCP server uses the **official AAS OpenAPI specifications** (V3.1.1 SSP-001) - full, unfiltered specs that define the complete AAS API surface.
 
-**Optional**: The project includes **example derived specs** for **Eclipse BaSyx v2.0** in `openapi/derived/`. These are pre-filtered to only include endpoints that BaSyx actually implements, preventing LLMs from attempting to use unsupported endpoints.
+**Optional**: The project includes **example derived specs** in `openapi/derived/`. These are pre-filtered to match specific implementation capabilities, preventing LLMs from attempting to use unsupported endpoints.
 
-**User Choice**: Users can generate their own derived specs for their specific implementation (FA³ST, custom servers, etc.) using the provided tools.
+**User Choice**: Users can generate their own derived specs for their specific implementation (SAP BNAC AAS Server, Eclipse BaSyx, FA³ST Service, etc.) using the provided tools.
 
 ### Why Use Derived Specs?
 
-The official AAS OpenAPI specs are comprehensive, but real-world implementations often support only a subset of endpoints:
-
-**Example - Eclipse BaSyx Coverage:**
-- **AAS Repo**: Official spec has 33 paths, BaSyx implements 6 core paths (18% coverage)
-- **Submodel Repo**: Official spec has 30 paths, BaSyx implements 9 paths (30% coverage)
-- **AAS Registry**: Official spec has 5 paths, BaSyx implements all 5 (100% coverage)
-- **Submodel Registry**: Official spec has 3 paths, BaSyx implements all 3 (100% coverage)
+The official AAS OpenAPI specs are comprehensive, but real-world implementations often support only a subset of endpoints. Using derived specs provides:
 
 **Benefits of derived specs:**
 - Prevents LLMs from attempting unsupported endpoints (better UX)
@@ -216,15 +243,12 @@ python3 scripts/generate_implementation.py --config configs/your-config.yaml --d
 
 1. **Generate filter strings** (computes intersection of official spec and implementation):
    ```bash
-   # Use default configuration (BaSyx)
-   python3 scripts/generate_filters.py
-
-   # Use specific implementation via environment variable
-   export AAS_IMPLEMENTATION_CONFIG=configs/faaast-config.yaml
-   python3 scripts/generate_filters.py
-
    # Use specific implementation via command-line
    python3 scripts/generate_filters.py --config configs/your-config.yaml
+
+   # Use specific implementation via environment variable
+   export AAS_IMPLEMENTATION_CONFIG=configs/your-config.yaml
+   python3 scripts/generate_filters.py
 
    # List available configurations
    python3 scripts/generate_filters.py --list-configs
@@ -233,88 +257,45 @@ python3 scripts/generate_implementation.py --config configs/your-config.yaml --d
    The script loads configuration from (in priority order):
    1. Command-line argument (`--config`)
    2. Environment variable (`AAS_IMPLEMENTATION_CONFIG`)
-   3. Default (`configs/basyx-config.yaml`)
-
-2. **Generate derived specs** using the filter strings:
-   ```bash
-   # Copy the export commands from step 1 output, then:
-   export AAS_REPO_FILTER_PATHS="<filter string>"
-   python3 scripts/generate_derived_spec.py --component aas-repo
-
-   export SUBMODEL_REPO_FILTER_PATHS="<filter string>"
-   python3 scripts/generate_derived_spec.py --component submodel-repo
-
-   export AAS_REGISTRY_FILTER_PATHS="<filter string>"
-   python3 scripts/generate_derived_spec.py --component aas-registry
-
-   export SUBMODEL_REGISTRY_FILTER_PATHS="<filter string>"
-   python3 scripts/generate_derived_spec.py --component submodel-registry
-   ```
+   3. Default (if configured)
 
 Derived specs are written to `openapi/derived/` and include overlays automatically.
 
-### Default Implementation: Eclipse BaSyx
+**Note**: The `generate_filters.py` and `generate_derived_spec.py` are library modules. They are called programmatically by `generate_implementation.py` and should not be run directly as CLI scripts.
 
-The project includes derived specs for **Eclipse BaSyx** implementations as the default reference. The following endpoints are supported:
+### Example Implementation: SAP BNAC AAS Server
 
-**AAS Repository** (6 paths, 13 operations):
-- `/shells` - GET, POST
-- `/shells/{aasIdentifier}` - GET, PUT, DELETE
-- `/shells/{aasIdentifier}/asset-information` - GET, PUT
-- `/shells/{aasIdentifier}/asset-information/thumbnail` - GET, PUT, DELETE
-- `/shells/{aasIdentifier}/submodel-refs` - GET, POST
-- `/shells/{aasIdentifier}/submodel-refs/{submodelIdentifier}` - DELETE
+The project includes example derived specs demonstrating how to filter the official AAS specifications to match a specific implementation's capabilities. These examples show supported endpoint patterns without exposing the complete endpoint list.
 
-**Submodel Repository** (9 paths, 20 operations):
-- `/submodels` - GET, POST
-- `/submodels/{submodelIdentifier}` - GET, PUT, DELETE
-- `/submodels/{submodelIdentifier}/$metadata` - GET
-- `/submodels/{submodelIdentifier}/$value` - GET, PATCH
-- `/submodels/{submodelIdentifier}/submodel-elements` - GET, POST
-- `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}` - GET, PUT, POST, DELETE
-- `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/$value` - GET, PATCH
-- `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/attachment` - GET, PUT, DELETE
-- `/submodels/{submodelIdentifier}/submodel-elements/{idShortPath}/invoke` - POST
+**Example endpoint documentation:**
+- `docs/sap-bnac-repo-supported-endpoints.json` (AAS and Submodel Repositories)
+- `docs/sap-bnac-aas-registry-supported-endpoints.json` (AAS Registry)
+- `docs/sap-bnac-submodel-registry-supported-endpoints.json` (Submodel Registry)
 
-**AAS Registry** (5 paths, 11 operations):
-- `/description` - GET
-- `/shell-descriptors` - GET, POST
-- `/shell-descriptors/{aasIdentifier}` - GET, PUT, DELETE
-- `/shell-descriptors/{aasIdentifier}/submodel-descriptors` - GET, POST
-- `/shell-descriptors/{aasIdentifier}/submodel-descriptors/{submodelIdentifier}` - GET, PUT, DELETE
-
-**Submodel Registry** (3 paths, 7 operations):
-- `/description` - GET
-- `/submodel-descriptors` - GET, POST
-- `/submodel-descriptors/{submodelIdentifier}` - GET, PUT, DELETE
-
-**Reference Documentation:**
-- `docs/basyx-repo-supported-endpoints.json` (AAS and Submodel Repositories)
-- `docs/basyx-aas-registry-supported-endpoints.json` (AAS Registry)
-- `docs/basyx-submodel-registry-supported-endpoints.json` (Submodel Registry)
+See `configs/sap-bnac-config.example.yaml` for a complete configuration example.
 
 ### Adding Support for Other Implementations
 
-To add support for additional implementations (e.g., FA³ST, custom servers):
+To add support for additional implementations (Eclipse BaSyx, FA³ST Service, or custom servers):
 
-1. **Document the implementation's endpoints** in an OpenAPI JSON/YAML file (e.g., `docs/faaast-repo-supported-endpoints.json`)
+1. **Document the implementation's endpoints** in an OpenAPI JSON/YAML file (e.g., `docs/your-impl-repo-supported-endpoints.json`)
 
 2. **Create a configuration file** in `configs/` directory:
    ```yaml
-   # configs/faaast-config.yaml
-   name: FA³ST Service
+   # configs/your-impl-config.yaml
+   name: Your Implementation Name
    version: v1.0
    components:
      aas-repo:
-       implementation_spec: docs/faaast-repo-supported-endpoints.json
+       implementation_spec: docs/your-impl-repo-supported-endpoints.json
        official_spec: openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml
        path_prefix: /shells
    ```
-   See `configs/README.md` and `configs/faaast-config.yaml.template` for details.
+   See `configs/README.md` and `configs/config.yaml.template` for details.
 
 3. **Generate filter strings**:
    ```bash
-   python3 scripts/generate_filters.py --config configs/faaast-config.yaml
+   python3 scripts/generate_filters.py --config configs/your-impl-config.yaml
    ```
 
 4. **Generate derived specs** using the output filter strings
@@ -340,6 +321,8 @@ uv run pytest tests/test_openapi_loader.py::TestFilterPaths::test_filter_single_
 ```
 
 ### Running the Server Locally
+
+**stdio transport (for Claude Desktop/CLI):**
 ```bash
 # Install in editable mode
 pip install -e .
@@ -357,6 +340,49 @@ aas-mcp-server --component aas-repo --enable-writes
 aas-mcp-server --component aas-registry --openapi ./custom-spec.yaml
 ```
 
+**HTTP transport (for production/multiple clients):**
+```bash
+# Start HTTP server
+aas-mcp-server \
+  --component aas-repo \
+  --base-url http://localhost:8081 \
+  --transport http \
+  --host 0.0.0.0 \
+  --port 8090
+
+# Test with Python client
+python3 test_fastmcp_client.py
+```
+
+See [docs/TRANSPORTS.md](docs/TRANSPORTS.md) for detailed transport documentation.
+
+### Testing with MCP Inspector
+The MCP Inspector provides a browser-based UI for testing and debugging MCP tools interactively.
+
+```bash
+# Test default component (aas-repo)
+./scripts/run_inspector.sh
+
+# Test specific component
+AAS_COMPONENT=submodel-repo ./scripts/run_inspector.sh
+
+# Test with custom backend
+AAS_BASE_URL=http://prod-server:8081 ./scripts/run_inspector.sh
+
+# Test derived spec (implementation-specific)
+AAS_COMPONENT=aas-repo \
+AAS_OPENAPI_PATH=openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml \
+./scripts/run_inspector.sh
+
+# Enable write operations for testing
+AAS_MCP_ENABLE_WRITES=1 ./scripts/run_inspector.sh
+```
+
+The script automatically:
+- Selects the correct default OpenAPI spec for the component
+- Displays configuration summary before starting
+- Launches the inspector in your browser
+
 ### Testing with Path Filtering
 ```bash
 # Filter to specific paths
@@ -364,6 +390,7 @@ export AAS_REPO_FILTER_PATHS="/shells:get,post;/shells/{aasIdentifier}:get"
 aas-mcp-server --component aas-repo --log-level DEBUG
 
 # View available tools in MCP inspector
+./scripts/run_inspector.sh
 # The filtered spec will only expose the specified paths/methods
 ```
 
@@ -514,23 +541,77 @@ If you prefer not to use config files:
 
 ## MCP Integration Notes
 
-Claude Desktop configuration requires one entry per component:
+### Claude CLI / Claude Desktop Configuration
+
+Each AAS component requires a separate MCP server entry. For Claude CLI, configure in `~/.claude.json`:
+
 ```json
 {
   "mcpServers": {
     "aas-repo": {
-      "command": "aas-mcp-server",
-      "args": ["--component", "aas-repo", "--base-url", "http://localhost:8080"]
+      "type": "stdio",
+      "command": "/absolute/path/to/aas-mcp-server",
+      "args": [
+        "--component", "aas-repo",
+        "--base-url", "http://localhost:8080",
+        "--log-level", "WARNING"
+      ],
+      "env": {}
     },
     "submodel-repo": {
-      "command": "aas-mcp-server",
-      "args": ["--component", "submodel-repo", "--base-url", "http://localhost:8081"]
+      "type": "stdio",
+      "command": "/absolute/path/to/aas-mcp-server",
+      "args": [
+        "--component", "submodel-repo",
+        "--base-url", "http://localhost:8081",
+        "--log-level", "WARNING"
+      ],
+      "env": {}
     }
   }
 }
 ```
 
+**Important Configuration Notes:**
+1. **Configuration file**: MCP servers are configured in `~/.claude.json` (not `~/.claude/settings.local.json`)
+   - The `mcpServers` section is at the root level of the JSON file
+   - Each server entry must include `"type": "stdio"` and `"env": {}` fields
+2. **Use absolute paths**: The `command` must be an absolute path to the executable
+   - Find it with: `which aas-mcp-server` or use `.venv/bin/aas-mcp-server` for development
+3. **Log level handling**: The `--log-level WARNING` argument is optional but recommended
+   - The server automatically suppresses FastMCP's internal logs for stdio transport
+   - This ensures clean JSON-RPC communication over stdout
+4. **Banner is disabled**: Since v0.3.0, the server automatically disables FastMCP's banner for stdio transport
+   - This was required for MCP protocol compliance (clean stdout for JSON-RPC)
+   - Implemented via `mcp.run(transport=args.transport, show_banner=False)` in `cli.py`
+5. **FastMCP logging fix**: Since this commit, FastMCP's internal loggers are suppressed for stdio
+   - Prevents INFO/WARNING messages from polluting stderr during MCP communication
+   - Only CRITICAL errors are shown, which indicate actual failures
+
 Each component runs as a separate MCP server process, exposing its own tool set. This allows LLMs to work with multiple AAS services simultaneously while keeping tool namespaces separate.
+
+### Troubleshooting MCP Integration
+
+If servers don't appear in Claude CLI:
+1. Check config file exists: `~/.claude.json`
+2. Validate JSON syntax: `cat ~/.claude.json | jq '.mcpServers'`
+3. Verify server entry format includes required fields:
+   ```json
+   {
+     "server-name": {
+       "type": "stdio",
+       "command": "/absolute/path/to/executable",
+       "args": ["--arg1", "value1"],
+       "env": {}
+     }
+   }
+   ```
+4. Test server manually: 
+   ```bash
+   echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}' | \
+   /path/to/aas-mcp-server --component aas-repo --base-url http://localhost:8080 --log-level WARNING
+   ```
+5. Restart Claude CLI after config changes
 
 ## OpenAPI Overlay Specification
 

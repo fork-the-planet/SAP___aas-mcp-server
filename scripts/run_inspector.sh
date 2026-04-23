@@ -9,7 +9,7 @@ set -euo pipefail
 # - Debug OpenAPI spec to MCP tool conversion
 #
 # Usage:
-#   # Test AAS Repository component
+#   # Test AAS Repository component (requires config.yaml)
 #   ./scripts/run_inspector.sh
 #
 #   # Test specific component
@@ -18,44 +18,35 @@ set -euo pipefail
 #   # Use custom backend URL
 #   AAS_BASE_URL=http://prod-server:8081 ./scripts/run_inspector.sh
 #
-#   # Use derived spec for specific implementation
-#   AAS_OPENAPI_PATH=openapi/derived/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved-derived.yaml ./scripts/run_inspector.sh
+#   # Use custom config file
+#   CONFIG_PATH=/path/to/config.yaml ./scripts/run_inspector.sh
 #
 # Environment variables:
 #   AAS_COMPONENT       - Component to test (default: aas-repo)
 #                         Options: aas-repo, submodel-repo, aas-registry, submodel-registry
 #   AAS_BASE_URL        - Backend AAS server URL (default: http://localhost:8080)
-#   AAS_OPENAPI_PATH    - OpenAPI spec path (default: official spec for component)
+#   CONFIG_PATH         - Path to config.yaml (default: config.yaml in current directory)
 #   AAS_MCP_ENABLE_WRITES - Set to "1" to enable write operations (default: read-only)
 
 # Set defaults
 COMPONENT="${AAS_COMPONENT:-aas-repo}"
-BASE_URL="${AAS_BASE_URL:-http://localhost:8080}"
+BASE_URL="${AAS_BASE_URL:-http://localhost:8081}"
+CONFIG_PATH="${CONFIG_PATH:-config.yaml}"
+ENABLE_WRITES="${AAS_MCP_ENABLE_WRITES:-1}"  # Default: disabled (read-only)
 
-# Determine default OpenAPI path based on component if not specified
-if [ -z "${AAS_OPENAPI_PATH:-}" ]; then
-  case "$COMPONENT" in
-    aas-repo)
-      DEFAULT_OPENAPI="openapi/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml"
-      ;;
-    submodel-repo)
-      DEFAULT_OPENAPI="openapi/SubmodelRepositoryServiceSpecification-V3.1.1_SSP-001-resolved.yaml"
-      ;;
-    aas-registry)
-      DEFAULT_OPENAPI="openapi/AssetAdministrationShellRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml"
-      ;;
-    submodel-registry)
-      DEFAULT_OPENAPI="openapi/SubmodelRegistryServiceSpecification-V3.1.1_SSP-001-resolved.yaml"
-      ;;
-    *)
-      echo "Error: Unknown component: $COMPONENT"
-      echo "Valid components: aas-repo, submodel-repo, aas-registry, submodel-registry"
-      exit 1
-      ;;
-  esac
-  OPENAPI_PATH="$DEFAULT_OPENAPI"
-else
-  OPENAPI_PATH="$AAS_OPENAPI_PATH"
+# Check if config file exists
+if [ ! -f "$CONFIG_PATH" ]; then
+  echo "❌ Error: Configuration file not found: $CONFIG_PATH"
+  echo ""
+  echo "Please create a config.yaml file or set CONFIG_PATH environment variable."
+  echo ""
+  echo "Example config.yaml:"
+  echo "  components:"
+  echo "    aas-repo:"
+  echo "      official_spec: specs/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001.yaml"
+  echo ""
+  echo "See config.yaml.example for a complete template."
+  exit 1
 fi
 
 echo "========================================"
@@ -63,15 +54,28 @@ echo "MCP Inspector Configuration"
 echo "========================================"
 echo "Component:    $COMPONENT"
 echo "Base URL:     $BASE_URL"
-echo "OpenAPI Spec: $OPENAPI_PATH"
-echo "Write Mode:   ${AAS_MCP_ENABLE_WRITES:-disabled (read-only)}"
+echo "Config File:  $CONFIG_PATH"
+if [ "$ENABLE_WRITES" = "1" ]; then
+  echo "Write Mode:   enabled"
+else
+  echo "Write Mode:   disabled (read-only)"
+fi
 echo "========================================"
 echo ""
 echo "Starting MCP Inspector..."
 echo "The browser will open automatically with the MCP testing UI."
 echo ""
 
-npx @modelcontextprotocol/inspector -- aas-mcp-server \
-  --component "$COMPONENT" \
-  --base-url "$BASE_URL" \
-  --openapi "$OPENAPI_PATH"
+# Build command with conditional --enable-writes flag
+CMD="npx @modelcontextprotocol/inspector -- aas-mcp-server \
+  --component \"$COMPONENT\" \
+  --base-url \"$BASE_URL\" \
+  --config \"$CONFIG_PATH\" \
+  --log-level DEBUG"
+
+# Add --enable-writes if environment variable is set
+if [ "$ENABLE_WRITES" = "1" ]; then
+  CMD="$CMD --enable-writes"
+fi
+
+eval "$CMD"

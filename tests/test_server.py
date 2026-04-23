@@ -41,7 +41,7 @@ class TestBuildMcpServer:
             log_level="DEBUG",
         )
 
-        mock_configure_logging.assert_called_once_with("DEBUG")
+        mock_configure_logging.assert_called_once_with("DEBUG", transport="stdio")
 
     @patch("aas_mcp_server.server.configure_logging")
     @patch("aas_mcp_server.server.load_and_process_openapi")
@@ -63,7 +63,7 @@ class TestBuildMcpServer:
             enable_writes=False,
         )
 
-        mock_configure_logging.assert_called_once_with(DEFAULT_LOG_LEVEL)
+        mock_configure_logging.assert_called_once_with(DEFAULT_LOG_LEVEL, transport="stdio")
 
     @patch("aas_mcp_server.server.configure_logging")
     @patch("aas_mcp_server.server.load_and_process_openapi")
@@ -257,7 +257,7 @@ class TestBuildMcpServer:
         """Test that pipeline steps execute in correct order."""
         call_order = []
 
-        def track_configure_logging(*args):
+        def track_configure_logging(*args, **kwargs):
             call_order.append("configure_logging")
 
         def track_load_openapi(*args):
