@@ -1,0 +1,189 @@
+================================================================================
+AAS MCP SERVER - CLIENT CONFIGURATION EXAMPLES
+================================================================================
+
+The same aas-mcp-server binary works with all MCP-compatible clients.
+The server logic is identical -- only the config file format differs per client.
+
+Prerequisites for all clients:
+  1. Install:  pip install aas-mcp-server
+  2. Create a config.yaml (copy from config.yaml.template)
+  3. Download official AAS OpenAPI specs from:
+     https://github.com/admin-shell-io/aas-specs
+
+Optional environment variables (all clients):
+  AAS_TOKEN               Bearer token for AAS backend authentication
+  AAS_API_KEY             API key for AAS backend authentication
+  AAS_MCP_ENABLE_WRITES=1 Enable write operations (POST/PUT/PATCH/DELETE)
+  AAS_HTTP_TIMEOUT        HTTP timeout in seconds (default: 30)
+
+
+================================================================================
+1. CLAUDE DESKTOP
+   Config file: ~/Library/Application Support/Claude/claude_desktop_config.json
+   (macOS) or %APPDATA%\Claude\claude_desktop_config.json (Windows)
+================================================================================
+
+See claude_desktop_config.example.json in this repository for the full example.
+
+Minimal single-component example:
+
+  {
+    "mcpServers": {
+      "aas-repo": {
+        "command": "aas-mcp-server",
+        "args": [
+          "--component", "aas-repo",
+          "--base-url", "http://localhost:8080",
+          "--config", "/path/to/your/config.yaml"
+        ],
+        "env": {
+          "LOG_LEVEL": "INFO"
+        }
+      }
+    }
+  }
+
+
+================================================================================
+2. CLAUDE CLI (claude mcp add)
+   Anthropic's Claude Code CLI -- https://claude.ai/code
+================================================================================
+
+Add each component as a separate MCP server using the CLI:
+
+  # AAS Repository
+  claude mcp add aas-repo \
+    --env LOG_LEVEL=INFO \
+    -- aas-mcp-server \
+       --component aas-repo \
+       --base-url http://localhost:8080 \
+       --config /path/to/your/config.yaml
+
+  # Submodel Repository
+  claude mcp add submodel-repo \
+    --env LOG_LEVEL=INFO \
+    -- aas-mcp-server \
+       --component submodel-repo \
+       --base-url http://localhost:8081 \
+       --config /path/to/your/config.yaml
+
+  # AAS Registry
+  claude mcp add aas-registry \
+    --env LOG_LEVEL=INFO \
+    -- aas-mcp-server \
+       --component aas-registry \
+       --base-url http://localhost:8083 \
+       --config /path/to/your/config.yaml
+
+  # Submodel Registry
+  claude mcp add submodel-registry \
+    --env LOG_LEVEL=INFO \
+    -- aas-mcp-server \
+       --component submodel-registry \
+       --base-url http://localhost:8084 \
+       --config /path/to/your/config.yaml
+
+Scope options (add --scope flag):
+  --scope local   Only in current project, private to you (default)
+  --scope project Shared with team via .mcp.json (committed to git)
+  --scope user    Available across all your projects
+
+Manage servers:
+  claude mcp list
+  claude mcp get aas-repo
+  claude mcp remove aas-repo
+
+With authentication (bearer token):
+  claude mcp add aas-repo \
+    --env LOG_LEVEL=INFO \
+    --env AAS_TOKEN=your-bearer-token \
+    -- aas-mcp-server \
+       --component aas-repo \
+       --base-url https://your-backend:8080 \
+       --config /path/to/your/config.yaml
+
+
+================================================================================
+3. OPENCODE
+   Config file: opencode.json in project root or ~/.config/opencode/opencode.json
+   Documentation: https://opencode.ai/docs/mcp-servers/
+================================================================================
+
+Add to your opencode.json:
+
+  {
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+      "aas-repo": {
+        "type": "local",
+        "command": [
+          "aas-mcp-server",
+          "--component", "aas-repo",
+          "--base-url", "http://localhost:8080",
+          "--config", "/path/to/your/config.yaml"
+        ],
+        "enabled": true,
+        "environment": {
+          "LOG_LEVEL": "INFO"
+        }
+      },
+      "submodel-repo": {
+        "type": "local",
+        "command": [
+          "aas-mcp-server",
+          "--component", "submodel-repo",
+          "--base-url", "http://localhost:8081",
+          "--config", "/path/to/your/config.yaml"
+        ],
+        "enabled": true,
+        "environment": {
+          "LOG_LEVEL": "INFO"
+        }
+      },
+      "aas-registry": {
+        "type": "local",
+        "command": [
+          "aas-mcp-server",
+          "--component", "aas-registry",
+          "--base-url", "http://localhost:8083",
+          "--config", "/path/to/your/config.yaml"
+        ],
+        "enabled": true,
+        "environment": {
+          "LOG_LEVEL": "INFO"
+        }
+      },
+      "submodel-registry": {
+        "type": "local",
+        "command": [
+          "aas-mcp-server",
+          "--component", "submodel-registry",
+          "--base-url", "http://localhost:8084",
+          "--config", "/path/to/your/config.yaml"
+        ],
+        "enabled": true,
+        "environment": {
+          "LOG_LEVEL": "INFO"
+        }
+      }
+    }
+  }
+
+
+================================================================================
+NOTES
+================================================================================
+
+- All four components can run simultaneously as separate MCP servers.
+  Each exposes a different set of AAS tools to the LLM.
+
+- You can run only the components you need. If you only use AAS Repository,
+  configure only the aas-repo entry.
+
+- Write operations are disabled by default (read-only mode).
+  To enable writes, add AAS_MCP_ENABLE_WRITES=1 to the environment section
+  of any component that needs it.
+
+- The --config path must point to a valid config.yaml that references your
+  OpenAPI spec files. See config.yaml.template for a complete example.
