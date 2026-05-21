@@ -530,7 +530,7 @@ class TestConstants:
 
 
 class TestBuildJwtVerifier:
-    """Tests for build_jwt_verifier function — task 3.6."""
+    """Tests for build_jwt_verifier function."""
 
     @patch.dict(os.environ, {}, clear=True)
     def test_returns_none_when_oauth_issuer_not_set(self):
@@ -595,9 +595,10 @@ class TestBuildJwtVerifier:
 
     @patch.dict(os.environ, {"OAUTH_ISSUER_URL": TEST_ISSUER_URL})
     def test_warning_emitted_when_audience_not_set(self, caplog):
-        """Missing OAUTH_AUDIENCE triggers a security WARNING (GAP-1)."""
+        """Missing OAUTH_AUDIENCE always emits a WARNING — never a hard failure."""
         with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
-            build_jwt_verifier()
+            result = build_jwt_verifier()
+        assert result is not None, "Missing audience must not block startup"
         assert any("OAUTH_AUDIENCE" in r.message for r in caplog.records)
         assert any("audience" in r.message.lower() for r in caplog.records)
 
@@ -727,30 +728,13 @@ class TestBuildAuthProvider:
 
 
 class TestAudienceEnforcement:
-    """Tests for OAUTH_AUDIENCE enforcement.
+    """Tests for OAUTH_AUDIENCE behaviour — always warning-only, never a hard failure.
 
-    OAUTH_AUDIENCE is mandatory (hard startup failure) when:
-    - host is a non-localhost address, OR
-    - OAUTH_SERVER_BASE_URL is set (reverse-proxy case: localhost bind but public URL)
-
-    OAUTH_AUDIENCE is optional (warning only) ONLY when:
-    - host is localhost AND OAUTH_SERVER_BASE_URL is not set
-    (genuine local development scenario)
+    OAUTH_AUDIENCE is optional in all deployment scenarios. When absent, a WARNING
+    is logged. There is no hard startup failure — Docker containers routinely use
+    0.0.0.0 as the bind address regardless of whether they are test or production,
+    making bind-address-based enforcement too fragile to be useful.
     """
-
-    @patch.dict(
-        os.environ,
-        {
-            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
-            # OAUTH_AUDIENCE intentionally absent
-        },
-    )
-    def test_non_local_host_without_audience_raises(self):
-        """Non-localhost host without OAUTH_AUDIENCE → hard failure."""
-        import pytest
-
-        with pytest.raises(ValueError, match="OAUTH_AUDIENCE must be set"):
-            build_auth_provider(host="0.0.0.0", port=8000)
 
     @patch.dict(
         os.environ,
@@ -759,8 +743,8 @@ class TestAudienceEnforcement:
             "OAUTH_AUDIENCE": TEST_AUDIENCE,
         },
     )
-    def test_non_local_host_with_audience_succeeds(self):
-        """Non-localhost host with OAUTH_AUDIENCE set → no error."""
+    def test_with_audience_succeeds(self):
+        """OAUTH_AUDIENCE set → RemoteAuthProvider returned with no warnings."""
         result = build_auth_provider(host="0.0.0.0", port=8000)
         assert isinstance(result, RemoteAuthProvider)
 
@@ -768,11 +752,25 @@ class TestAudienceEnforcement:
         os.environ,
         {
             "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
-            # OAUTH_AUDIENCE intentionally absent, no OAUTH_SERVER_BASE_URL
+            # OAUTH_AUDIENCE intentionally absent
         },
     )
-    def test_localhost_without_audience_warns_not_fails(self, caplog):
-        """Pure localhost (no OAUTH_SERVER_BASE_URL) → warning only, no failure."""
+    def test_without_audience_warns_not_fails_on_nonlocal_host(self, caplog):
+        """0.0.0.0 bind without OAUTH_AUDIENCE → warning only, no failure."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="0.0.0.0", port=8000)
+        assert result is not None
+        assert any("OAUTH_AUDIENCE" in r.message for r in caplog.records)
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            # OAUTH_AUDIENCE intentionally absent
+        },
+    )
+    def test_without_audience_warns_not_fails_on_localhost(self, caplog):
+        """localhost without OAUTH_AUDIENCE → warning only, no failure."""
         with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
             result = build_auth_provider(host="127.0.0.1", port=8000)
         assert result is not None
@@ -783,20 +781,14 @@ class TestAudienceEnforcement:
         {
             "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
             "OAUTH_SERVER_BASE_URL": "https://mcp.example.com",
-            # OAUTH_AUDIENCE absent — reverse-proxy case must be hard failure
+            # OAUTH_AUDIENCE absent
         },
     )
-    def test_localhost_with_server_base_url_without_audience_raises(self):
-        """localhost bind + OAUTH_SERVER_BASE_URL set (reverse-proxy) → hard failure.
-
-        OAUTH_SERVER_BASE_URL signals the operator declared a public URL.
-        Even though the bind address is localhost, the server is externally
-        reachable, so audience enforcement applies.
-        """
-        import pytest
-
-        with pytest.raises(ValueError, match="OAUTH_AUDIENCE must be set"):
-            build_auth_provider(host="127.0.0.1", port=8000)
+    def test_without_audience_warns_not_fails_with_server_base_url(self, caplog):
+        """OAUTH_SERVER_BASE_URL set but no audience → warning only, no failure."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="127.0.0.1", port=8000)
+        assert result is not None
 
     @patch.dict(
         os.environ,
@@ -806,7 +798,7 @@ class TestAudienceEnforcement:
         },
     )
     def test_loopback_ipv6_without_audience_warns_not_fails(self, caplog):
-        """::1 (IPv6 loopback, no OAUTH_SERVER_BASE_URL) — warning only."""
+        """::1 without OAUTH_AUDIENCE → warning only."""
         with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
             result = build_auth_provider(host="::1", port=8000)
         assert result is not None
@@ -818,26 +810,8 @@ class TestAudienceEnforcement:
             # OAUTH_AUDIENCE absent
         },
     )
-    def test_localhost_hostname_without_audience_warns_not_fails(self, caplog):
-        """'localhost' string (no OAUTH_SERVER_BASE_URL) — warning only."""
+    def test_localhost_string_without_audience_warns_not_fails(self, caplog):
+        """'localhost' without OAUTH_AUDIENCE → warning only."""
         with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
             result = build_auth_provider(host="localhost", port=8000)
         assert result is not None
-
-    @patch.dict(
-        os.environ,
-        {
-            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
-            # OAUTH_AUDIENCE absent
-        },
-    )
-    def test_error_message_is_actionable(self):
-        """Error message explains the risk and what to set."""
-        import pytest
-
-        with pytest.raises(ValueError) as exc_info:
-            build_auth_provider(host="0.0.0.0", port=8000)
-        msg = str(exc_info.value)
-        assert "OAUTH_AUDIENCE" in msg
-        assert "network-accessible" in msg
-        assert "aud" in msg

@@ -11,13 +11,19 @@ This module orchestrates the complete MCP server construction pipeline:
 4. Build FastMCP RemoteAuthProvider if OAuth is configured
 5. Generate FastMCP server from curated OpenAPI spec
 
-## Audience enforcement
+## Audience validation
 
-OAUTH_AUDIENCE is optional for local development (MCP_HOST is localhost/127.0.0.1/::1)
-but becomes a hard startup failure when the server is bound to a non-localhost address.
-This is automatic — no separate profile flag is needed. The bind address itself is the
-reliable signal: a non-local HTTP deployment is a network-accessible service, which is
-exactly the context where token passthrough attacks are a real risk.
+OAUTH_AUDIENCE is always optional. When not set, a WARNING is logged at
+startup because audience validation is disabled. Operators who want strict
+audience enforcement should set OAUTH_AUDIENCE. Those who don't — including
+test/dev environments and setups where the OAuth provider and AAS backend
+share the same trust domain — can leave it unset.
+
+There is no automatic hard-failure based on bind address or other runtime
+signals. Such heuristics proved too fragile: Docker containers routinely bind
+on 0.0.0.0 regardless of whether they are test or production, and using
+OAUTH_SERVER_BASE_URL as a signal penalises operators who set it for the
+correct reason (RFC 9728 metadata accuracy behind a reverse proxy).
 """
 
 import logging
@@ -55,26 +61,18 @@ HTTP_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
 SCOPES_DELIMITER = ","
 
 
-def _build_jwt_verifier_from_env(*, local_dev: bool = True) -> JWTVerifier | None:
+def _build_jwt_verifier_from_env() -> JWTVerifier | None:
     """
     Build a JWTVerifier from environment variables, or return None.
 
-    Shared implementation used by both build_jwt_verifier() and
-    build_auth_provider(). Handles audience enforcement:
+    Returns None when OAUTH_ISSUER_URL is not set (auth disabled).
 
-    - local_dev=True: OAUTH_AUDIENCE is optional — WARNING if missing.
-      Only used when the server is bound to a localhost address AND
-      OAUTH_SERVER_BASE_URL is not set. This covers genuine local development
-      where the server is not reachable from outside the machine.
-
-    - local_dev=False (default for any network-accessible deployment):
-      OAUTH_AUDIENCE is mandatory — raises ValueError if missing.
-      This covers: non-localhost bind address, or OAUTH_SERVER_BASE_URL set
-      (operator declared a public URL, even if bind is localhost e.g. behind
-      a reverse proxy). Without audience validation, tokens intended for other
-      services are accepted — token passthrough risk.
-
-    Returns None when OAUTH_ISSUER_URL is not set.
+    OAUTH_AUDIENCE is optional. When absent, audience validation is disabled
+    and a WARNING is emitted. This is intentional: blocking startup on a
+    missing audience is too aggressive for containerised test/dev environments
+    where Docker bind addresses (0.0.0.0) cannot reliably distinguish test
+    from production. Operators who need strict audience enforcement should set
+    OAUTH_AUDIENCE explicitly.
     """
     issuer_url = os.getenv(ENV_OAUTH_ISSUER_URL)
     if not issuer_url:
@@ -82,15 +80,6 @@ def _build_jwt_verifier_from_env(*, local_dev: bool = True) -> JWTVerifier | Non
 
     audience = os.getenv(ENV_OAUTH_AUDIENCE)
     if not audience:
-        if not local_dev:
-            raise ValueError(
-                "OAUTH_AUDIENCE must be set for network-accessible deployments. "
-                "Without it, any token from the configured issuer is accepted, including "
-                "tokens intended for other services (token passthrough risk). "
-                "Set OAUTH_AUDIENCE to the resource identifier for this MCP server — "
-                "it must match the 'aud' claim in tokens issued by your OAuth provider "
-                "and must also match what the AAS backend expects."
-            )
         logger.warning(
             "OAUTH_ISSUER_URL is set but OAUTH_AUDIENCE is not. "
             "Audience validation is DISABLED — tokens intended for other resource "
@@ -120,12 +109,11 @@ def build_jwt_verifier() -> JWTVerifier | None:
     """
     Return a JWTVerifier built from environment variables, or None.
 
-    Retained as a public function for backward-compatibility with tests.
-    Uses local_dev=True (warning-only for missing audience).
-    Production server construction uses build_auth_provider() which sets
-    local_dev correctly based on bind address and OAUTH_SERVER_BASE_URL.
+    Public wrapper retained for backward-compatibility with tests.
+    Production server construction uses build_auth_provider() which wraps
+    this in a RemoteAuthProvider to also serve the RFC 9728 discovery endpoint.
     """
-    return _build_jwt_verifier_from_env(local_dev=True)
+    return _build_jwt_verifier_from_env()
 
 
 def build_auth_provider(
@@ -140,34 +128,23 @@ def build_auth_provider(
     This endpoint tells MCP clients which authorization server issues valid
     tokens, allowing them to perform the PKCE browser flow automatically.
 
-    When host is not a localhost address, OAUTH_AUDIENCE is mandatory —
-    raises ValueError on startup if missing (prevents token passthrough attacks
-    in network-accessible deployments without requiring a separate profile flag).
-
     Returns None when OAUTH_ISSUER_URL is not set (auth disabled).
     """
-    # local_dev=True only when BOTH conditions are met:
-    # 1. host is a localhost address (not externally bound)
-    # 2. OAUTH_SERVER_BASE_URL is not set (operator has not declared a public URL)
-    # If OAUTH_SERVER_BASE_URL is set, the operator declared the server is
-    # reachable externally (e.g. behind a reverse proxy with localhost bind),
-    # so audience enforcement must apply.
-    explicit_base = os.getenv(ENV_OAUTH_SERVER_BASE_URL)
-    is_localhost_bind = host in LOCALHOST_ADDRESSES
-    local_dev = is_localhost_bind and not explicit_base
-
-    jwt_verifier = _build_jwt_verifier_from_env(local_dev=local_dev)
+    jwt_verifier = _build_jwt_verifier_from_env()
     if jwt_verifier is None:
         return None
 
     issuer_url = os.getenv(ENV_OAUTH_ISSUER_URL)  # already validated non-None above
 
     # Derive the MCP server's public base URL for the RFC 9728 metadata endpoint.
-    # explicit_base already captured above for the local_dev calculation.
+    # OAUTH_SERVER_BASE_URL can be set explicitly for reverse-proxy deployments
+    # where the bind address (0.0.0.0) differs from the public-facing URL.
+    # When constructing from host:port, use https:// for non-localhost hosts.
+    explicit_base = os.getenv(ENV_OAUTH_SERVER_BASE_URL)
+    is_localhost_bind = host in LOCALHOST_ADDRESSES
     if explicit_base:
         server_base_url = explicit_base
     elif is_localhost_bind:
-        # Bracket IPv6 addresses for valid URL construction
         formatted_host = f"[{host}]" if ":" in host else host
         server_base_url = f"http://{formatted_host}:{port}"
     else:
@@ -209,20 +186,15 @@ def build_mcp_server(
         enable_writes: Whether to enable write operations (POST/PUT/PATCH/DELETE)
         log_level: Logging level (default: INFO)
         transport: MCP transport type ('stdio', 'http', 'sse', etc.)
-        host: Host the server will bind to (used for TLS warning, base URL,
-              and audience enforcement)
+        host: Host the server will bind to (used for TLS warning and base URL)
         port: Port the server will bind to (used for base URL construction)
 
     Returns:
         Configured FastMCP server instance
-
-    Raises:
-        ValueError: When OAuth is active, the host is non-localhost, and
-                    OAUTH_AUDIENCE is not set (token passthrough prevention).
     """
     configure_logging(log_level, transport=transport)
 
-    # Security checks for non-localhost HTTP deployments
+    # Warn when OAuth is active over plain HTTP on a non-localhost bind address
     if os.getenv(ENV_OAUTH_ISSUER_URL) and transport in HTTP_TRANSPORTS:
         if host not in LOCALHOST_ADDRESSES:
             logger.warning(
@@ -248,8 +220,7 @@ def build_mcp_server(
     # Build HTTP client (no static auth — token forwarding via BearerTokenAuth)
     client = build_async_client(base_url=base_url)
 
-    # Build auth provider (None when OAuth not configured).
-    # Raises ValueError when host is non-localhost and OAUTH_AUDIENCE is missing.
+    # Build auth provider (None when OAuth not configured)
     auth_provider = build_auth_provider(host=host, port=port)
 
     # Configure rate limiting (convert per-minute to per-second for token bucket)

@@ -141,7 +141,13 @@ class TestConstants:
 
 
 class TestValidateBackendUrl:
-    """Tests for validate_backend_url — SSRF prevention."""
+    """Tests for validate_backend_url — SSRF prevention.
+
+    Scope: only scheme validation and literal cloud metadata IP blocking.
+    RFC 1918 private addresses and Docker service hostnames are intentionally
+    allowed — they are the most common AAS backend addresses in containerised
+    deployments and pose no SSRF risk as operator-controlled configuration.
+    """
 
     def test_valid_http_url_accepted(self):
         validate_backend_url("http://aas-backend:8081")
@@ -150,9 +156,23 @@ class TestValidateBackendUrl:
         validate_backend_url("https://aas.example.com/api")
 
     def test_localhost_accepted(self):
-        """Localhost is always allowed for local development."""
         validate_backend_url("http://localhost:8081")
         validate_backend_url("http://127.0.0.1:8081")
+
+    def test_docker_service_hostname_accepted(self):
+        """Docker service names (aas-env-rbac, aas-env, etc.) must be allowed.
+
+        These resolve to RFC 1918 addresses by Docker's internal DNS — that is
+        expected and intentional, not an SSRF risk.
+        """
+        validate_backend_url("http://aas-env-rbac:8081")
+        validate_backend_url("http://aas-env:8081")
+
+    def test_rfc1918_private_ip_accepted(self):
+        """RFC 1918 addresses are legitimate Docker/on-premises backend IPs."""
+        validate_backend_url("http://10.0.0.5:8081")
+        validate_backend_url("http://172.22.0.7:8081")
+        validate_backend_url("http://192.168.1.100:8081")
 
     def test_file_scheme_rejected(self):
         import pytest
@@ -167,72 +187,18 @@ class TestValidateBackendUrl:
             validate_backend_url("ftp://internal-server/data")
 
     def test_cloud_metadata_ip_rejected(self):
-        """169.254.169.254 (AWS/GCP/Azure metadata) must be blocked."""
+        """169.254.169.254 (cloud metadata) must be blocked — never a valid backend."""
         import pytest
 
-        with pytest.raises(ValueError, match="private"):
+        with pytest.raises(ValueError, match="cloud metadata"):
             validate_backend_url("http://169.254.169.254/latest/meta-data/")
 
-    def test_private_10_network_rejected(self):
-        import pytest
-
-        with pytest.raises(ValueError, match="private"):
-            validate_backend_url("http://10.0.0.1:8080")
-
-    def test_private_192_168_network_rejected(self):
-        import pytest
-
-        with pytest.raises(ValueError, match="private"):
-            validate_backend_url("http://192.168.1.100:8080")
-
-    def test_private_172_16_network_rejected(self):
-        import pytest
-
-        with pytest.raises(ValueError, match="private"):
-            validate_backend_url("http://172.16.0.1:8080")
-
     def test_ipv4_mapped_ipv6_cloud_metadata_rejected(self):
-        """IPv4-mapped IPv6 form of 169.254.169.254 must be blocked (bypass attempt)."""
+        """IPv4-mapped IPv6 form of 169.254.169.254 must also be blocked."""
         import pytest
 
-        with pytest.raises(ValueError, match="private"):
+        with pytest.raises(ValueError, match="cloud metadata"):
             validate_backend_url("http://[::ffff:169.254.169.254]/")
-
-    def test_ipv4_mapped_ipv6_private_network_rejected(self):
-        """IPv4-mapped IPv6 form of 10.0.0.1 must be blocked."""
-        import pytest
-
-        with pytest.raises(ValueError, match="private"):
-            validate_backend_url("http://[::ffff:10.0.0.1]:8080")
-
-    def test_unspecified_address_rejected(self):
-        """0.0.0.0 is unspecified and must be rejected."""
-        import pytest
-
-        with pytest.raises(ValueError, match="private"):
-            validate_backend_url("http://0.0.0.0:8080")
-
-    def test_dns_resolves_to_private_ip_rejected(self):
-        """Hostname that resolves to a private IP must be blocked."""
-        import pytest
-        from unittest.mock import patch
-
-        with patch("aas_mcp_server.http_client.socket.getaddrinfo") as mock_dns:
-            # Simulate hostname resolving to cloud metadata IP
-            mock_dns.return_value = [(None, None, None, None, ("169.254.169.254", 80))]
-            with pytest.raises(ValueError, match="private"):
-                validate_backend_url("http://evil.example.com/")
-
-    def test_dns_resolution_failure_allows_hostname(self):
-        """DNS failure at startup is fail-open (backend may not be reachable yet)."""
-        from unittest.mock import patch
-
-        with patch(
-            "aas_mcp_server.http_client.socket.getaddrinfo",
-            side_effect=OSError("DNS failure"),
-        ):
-            # Should NOT raise — DNS failure is allowed at startup time
-            validate_backend_url("http://aas-backend-not-yet-reachable:8081")
 
     def test_no_redirects_on_client(self):
         """Client must not follow redirects to prevent open-redirect SSRF."""

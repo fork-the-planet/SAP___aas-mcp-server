@@ -16,7 +16,6 @@ returns None and no Authorization header is added.
 
 import ipaddress
 import os
-import socket
 from typing import Generator
 from urllib.parse import urlparse
 
@@ -26,7 +25,6 @@ from fastmcp.server.dependencies import get_access_token
 from .constants import (
     ENV_AAS_HTTP_TIMEOUT,
     DEFAULT_HTTP_TIMEOUT,
-    LOCALHOST_ADDRESSES,
 )
 
 # HTTP headers
@@ -40,64 +38,61 @@ AUTH_BEARER_FORMAT = "Bearer {token}"
 # Allowed URL schemes for AAS backend
 _ALLOWED_SCHEMES = frozenset({"http", "https"})
 
+# Link-local ranges used by cloud metadata services.
+# These are the only IPs that pose a genuine SSRF risk when present as a
+# literal IP in AAS_BASE_URL — an operator would never intentionally target
+# 169.254.169.254. All other private/RFC-1918 ranges (10/8, 172.16/12,
+# 192.168/16) are legitimate Docker / on-premises backend addresses and are
+# NOT blocked here. Network-level controls are the right enforcement layer
+# for restricting what backends the server is allowed to reach in production.
+_CLOUD_METADATA_NETWORKS = [
+    ipaddress.ip_network("169.254.0.0/16"),  # AWS/GCP/Azure/DO metadata
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+]
 
-def _is_ip_blocked(ip_str: str) -> bool:
-    """
-    Return True if the IP address is private, reserved, or otherwise unsafe.
 
-    Uses ipaddress built-in traits rather than a manual CIDR denylist.
-    This correctly handles all alternate representations:
-    - Octal/hex literal forms (handled by ipaddress parser)
-    - IPv4-mapped IPv6 (e.g. ::ffff:10.0.0.1) — unpacked and re-checked
-    - Teredo / 6to4 embedded IPv4 — also re-checked
-
-    An address is blocked if it is any of:
-    - Loopback          (127.0.0.1, ::1)
-    - Private           (10/8, 172.16/12, 192.168/16, fc00::/7)
-    - Link-local        (169.254.0.0/16 — cloud metadata; fe80::/10)
-    - Reserved          (240/4 and other IANA reserved ranges)
-    - Unspecified       (0.0.0.0, ::)
-    - Multicast
-    - Carrier-grade NAT (100.64/10)
-    """
+def _is_cloud_metadata_ip(ip_str: str) -> bool:
+    """Return True if the IP is a cloud metadata / link-local address."""
     try:
         addr = ipaddress.ip_address(ip_str)
     except ValueError:
-        return True  # unparseable → reject
-
-    # Unwrap IPv4-mapped IPv6 (::ffff:10.0.0.1 → 10.0.0.1) and re-check
+        return False
+    # Unwrap IPv4-mapped IPv6 (::ffff:169.254.169.254)
     if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
-        return _is_ip_blocked(str(addr.ipv4_mapped))
-
-    # Carrier-grade NAT (100.64.0.0/10) — not covered by is_private
-    if isinstance(addr, ipaddress.IPv4Address):
-        if addr in ipaddress.ip_network("100.64.0.0/10"):
-            return True
-
-    return (
-        addr.is_loopback
-        or addr.is_private
-        or addr.is_link_local
-        or addr.is_reserved
-        or addr.is_unspecified
-        or addr.is_multicast
-    )
+        return _is_cloud_metadata_ip(str(addr.ipv4_mapped))
+    return any(addr in net for net in _CLOUD_METADATA_NETWORKS)
 
 
 def validate_backend_url(url: str) -> None:
     """
     Validate that AAS_BASE_URL is a safe HTTP/HTTPS URL.
 
-    Prevents SSRF attacks where a malicious or misconfigured AAS_BASE_URL
-    could direct requests to cloud metadata endpoints (169.254.169.254),
-    internal services, or non-HTTP schemes (file://, ftp://).
+    Scope of this check
+    -------------------
+    AAS_BASE_URL is operator-controlled configuration, not user input.
+    The SSRF risk profile is therefore narrow:
 
-    Raises ValueError with a descriptive message on any violation.
-    DNS resolution is intentionally NOT performed here — the backend URL is
-    an operator-controlled value, and network-level controls (firewalls,
-    egress proxies) are the appropriate enforcement layer for production.
-    The check here guards against obvious misconfigurations and the most
-    common SSRF patterns.
+    - Wrong scheme (file://, ftp://, ldap://) — operator error or env-var
+      injection. Blocked: only http:// and https:// are permitted.
+    - Cloud metadata literal IPs (169.254.0.0/16, fe80::/10) — an operator
+      would never intentionally point AAS_BASE_URL at a metadata endpoint;
+      its presence strongly indicates misconfiguration or injection. Blocked.
+
+    What is NOT blocked
+    -------------------
+    - RFC 1918 private addresses (10/8, 172.16/12, 192.168/16): these are
+      the standard Docker network ranges and are the most common backend
+      addresses in containerised deployments. Blocking them would make the
+      server unusable in any Docker/Compose/Kubernetes environment.
+    - Hostnames that resolve to private IPs (e.g. Docker service names like
+      'aas-env-rbac'): same reason. Docker service discovery relies on
+      internal DNS that resolves to RFC 1918 addresses by design.
+
+    Network-level egress controls (firewalls, Kubernetes NetworkPolicy,
+    egress proxies) are the appropriate enforcement layer for restricting
+    which backends the server is permitted to reach in production.
+
+    Raises ValueError with an actionable message on any violation.
     """
     try:
         parsed = urlparse(url)
@@ -106,51 +101,34 @@ def validate_backend_url(url: str) -> None:
 
     if parsed.scheme not in _ALLOWED_SCHEMES:
         raise ValueError(
-            f"AAS_BASE_URL scheme {parsed.scheme!r} is not allowed. "
-            f"Only 'http' and 'https' are permitted."
+            f"AAS_BASE_URL uses scheme {parsed.scheme!r}, which is not allowed. "
+            f"Only 'http' and 'https' are permitted. "
+            f"If you intended to point at your AAS backend, check the URL — "
+            f"it should start with 'http://' or 'https://'."
         )
 
     hostname = parsed.hostname
     if not hostname:
-        raise ValueError(f"AAS_BASE_URL has no hostname: {url!r}")
+        raise ValueError(
+            f"AAS_BASE_URL has no hostname: {url!r}. "
+            f"Provide a full URL such as 'http://aas-backend:8081'."
+        )
 
-    # Explicitly allow localhost addresses for local development.
-    # All other hostnames are checked against the blocked IP list.
-    if hostname in LOCALHOST_ADDRESSES:
-        return
-
-    # If the hostname is already an IP address, validate it directly
+    # Only block literal cloud metadata IPs — not general private ranges.
+    # Docker service hostnames and RFC 1918 IPs are legitimate backend targets.
     try:
         ip = ipaddress.ip_address(hostname)
-        if _is_ip_blocked(str(ip)):
+        if _is_cloud_metadata_ip(str(ip)):
             raise ValueError(
-                f"AAS_BASE_URL resolves to a private/reserved IP address "
-                f"({hostname}). Cloud metadata endpoints and internal network "
-                f"ranges are not permitted as backend targets."
+                f"AAS_BASE_URL points to a cloud metadata IP address ({hostname}). "
+                f"This address is reserved for cloud instance metadata services "
+                f"(AWS/GCP/Azure/DigitalOcean) and cannot be an AAS backend. "
+                f"If this was unintentional, check the AAS_BASE_URL value. "
+                f"Expected format: 'http://your-aas-backend:8081'."
             )
-    except ValueError as e:
-        # Re-raise our own errors
-        if "AAS_BASE_URL" in str(e):
-            raise
-        # hostname is a domain name (not an IP) — check if it resolves to a blocked range.
-        # Note: this is a best-effort check; it does not prevent DNS rebinding in production.
-        # Use egress proxies / network policies for production SSRF prevention.
-        try:
-            resolved_ips = [
-                info[4][0]
-                for info in socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
-            ]
-            for ip_str in resolved_ips:
-                if _is_ip_blocked(ip_str):
-                    raise ValueError(
-                        f"AAS_BASE_URL hostname {hostname!r} resolves to a "
-                        f"private/reserved IP ({ip_str}). Cloud metadata endpoints "
-                        f"and internal network ranges are not permitted."
-                    )
-        except OSError:
-            # DNS resolution failed at startup — allow it; the backend
-            # may not be reachable at config time (Docker network, etc.)
-            pass
+    except ValueError as exc:
+        if "AAS_BASE_URL" in str(exc):
+            raise  # re-raise our own errors, not ipaddress parse errors
 
 
 class BearerTokenAuth(httpx.Auth):
