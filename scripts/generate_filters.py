@@ -144,7 +144,7 @@ MSG_ANALYSIS_HEADER = "AAS IMPLEMENTATION-SUPPORTED ENDPOINTS ANALYSIS"
 MSG_IMPLEMENTATION = "Implementation:"
 
 # Argparse messages
-ARG_HELP_CONFIG = "Path to implementation configuration file (default: built-in BaSyx config)"
+ARG_HELP_CONFIG = "Path to implementation configuration file (default: built-in config)"
 ARG_HELP_LIST_CONFIGS = "List available configuration files"
 ARG_HELP_LOG_LEVEL = "Set logging level (default: INFO)"
 ARG_DEFAULT_LOG_LEVEL = "INFO"
@@ -251,7 +251,7 @@ def load_config(config_path: str | None) -> dict[str, Any]:
     Priority:
     1. Command-line argument (--config)
     2. Environment variable (AAS_IMPLEMENTATION_CONFIG)
-    3. Default (configs/basyx-config.yaml)
+    3. Default (configs/config.yaml.template)
 
     Args:
         config_path: Path to configuration file from command-line, or None

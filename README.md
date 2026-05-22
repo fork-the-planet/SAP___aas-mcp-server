@@ -2,7 +2,7 @@
 
 > OpenAPI-to-MCP bridge for Asset Administration Shell (AAS) APIs
 
-Converts OpenAPI specifications into Model Context Protocol (MCP) tools, enabling LLMs to interact with AAS services.
+An AAS MCP adapter that exposes configured Asset Administration Shell APIs as Model Context Protocol tools, enabling LLM agents to interact with any AAS-compliant backend.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -12,7 +12,7 @@ Converts OpenAPI specifications into Model Context Protocol (MCP) tools, enablin
 ### Prerequisites
 
 1. **AAS OpenAPI Specifications** - [Download from GitHub](https://github.com/admin-shell-io/aas-specs)
-2. **AAS Backend Server** - Eclipse BaSyx, FA³ST Service, SAP BNAC, etc.
+2. **AAS Backend Server** - [SAP BNAC AAS Server](https://www.sap.com/germany/products/business-network/asset-collaboration.html), [Eclipse BaSyx](https://github.com/eclipse-basyx), [FA³ST Service](https://github.com/FraunhoferIOSB/FAAAST-Service), etc.
 3. **Python 3.12+** OR **Docker**
 
 ### Setup
@@ -283,12 +283,14 @@ tests/run_tests.sh
 tests/run_tests.sh --integration
 ```
 
-## Security
+## Security / Disclosure
 
 - **Read-only by default** - Write operations disabled unless `--enable-writes`
 - **Allowlist-based** - Only explicitly allowed operations exposed
 - **Wildcard patterns** - `[get, "*"]`, `["*", /path]`, `["*", "*"]`
 - **Pagination limits** - Max 100 items per request
+
+If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/SAP/aas-mcp-server/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
 
 ## How It Works
 
@@ -525,6 +527,10 @@ curl -s -o /dev/null -w "%{http_code}" \
   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}},"id":1}'
 ```
 
-## License
+## Code of Conduct
 
-Apache License 2.0 - See [LICENSE](LICENSE)
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone. By participating in this project, you agree to abide by its [Code of Conduct](https://github.com/SAP/.github/blob/main/CODE_OF_CONDUCT.md) at all times.
+
+## Licensing
+
+Copyright 2026 SAP SE or an SAP affiliate company and aas-mcp-server contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/SAP/aas-mcp-server).

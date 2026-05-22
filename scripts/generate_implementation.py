@@ -111,7 +111,7 @@ def load_config(config_path: str | None) -> dict[str, Any]:
     Priority:
     1. Command-line argument (--config)
     2. Environment variable (AAS_IMPLEMENTATION_CONFIG)
-    3. Default (configs/basyx-config.yaml)
+    3. Default (configs/config.yaml.template)
     """
     if config_path is None:
         config_path = os.getenv(CONFIG_ENV_VAR, DEFAULT_CONFIG_PATH)
