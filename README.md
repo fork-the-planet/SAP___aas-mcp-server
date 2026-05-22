@@ -70,7 +70,7 @@ Filter to only endpoints your backend supports:
 components:
   aas-repo:
     official_spec: specs/aas-repo-official.yaml
-    implementation_spec: specs/basyx-supported-endpoints.yaml
+    implementation_spec: specs/aas-supported-endpoints.yaml
 ```
 
 Result: Only endpoints in **both** specs are exposed (intersection).
@@ -485,8 +485,8 @@ print('BearerTokenAuth present — token forwarding is correct')
 
 Spring Security validates the `iss` claim in the token with exact string
 matching. If the MCP server was configured with
-`OAUTH_ISSUER_URL=http://keycloak.basyx.localhost/realms/BaSyx` but the AAS
-backend has `issuer-uri: http://keycloak:8080/realms/BaSyx`, Spring rejects
+`OAUTH_ISSUER_URL=http://keycloak.localhost/realms/aas` but the AAS
+backend has `issuer-uri: http://keycloak:8080/realms/aas`, Spring rejects
 the token even though it is from the same Keycloak.
 
 Decode the token to check the `iss` claim:
