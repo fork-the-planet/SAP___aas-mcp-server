@@ -191,17 +191,6 @@ impl-specs/
 localtesting
 
 # Internal SAP working files — must not be published to public GitHub
-*.pptx
 ~$*
 openspec/
 .opencode/
-create_presentation.py
-aas-env-spec.json
-
-# Internal process / governance documents
-eccn_questionnaire_answers.txt
-email_to_manager.txt
-github_repo_setup_answers.txt
-mcp_gov_intake_answers.txt
-open_source_submission.txt
-project_naming_proposals.txt
