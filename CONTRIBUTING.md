@@ -145,6 +145,28 @@ docs(readme): update installation instructions
 test(openapi-loader): add tests for overlay application
 ```
 
+### Pull Request Titles and Automatic Versioning
+
+**PR titles must also follow Conventional Commits.** The title is used by the
+automated versioning workflow to determine the semantic version bump applied
+to `pyproject.toml` before the PR is merged.
+
+| PR title example | Bump type | Version result |
+|---|---|---|
+| `feat: add submodel-repo OAuth support` | **minor** | `0.1.0 → 0.2.0` |
+| `fix: handle JWKS key rotation` | **patch** | `0.1.0 → 0.1.1` |
+| `chore: update dependencies` | **patch** | `0.1.0 → 0.1.1` |
+| `feat!: remove AAS_TOKEN support` | **major** | `0.1.0 → 1.0.0` |
+
+> **How it works:** When you open or update a PR against `main`, the
+> [Version Bump workflow](.github/workflows/version-bump.yml) automatically:
+> 1. Reads the PR title to compute the new version
+> 2. Updates `version` in `pyproject.toml` on your PR branch
+> 3. Commits the change back so `main` always has the correct version on merge
+>
+> If your PR title does not follow Conventional Commits the workflow will fail
+> and block the bump — fix the title and the workflow will re-run automatically.
+
 ## Testing Guidelines
 
 ### Test Coverage
