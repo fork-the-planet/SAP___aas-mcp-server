@@ -27,6 +27,7 @@ correct reason (RFC 9728 metadata accuracy behind a reverse proxy).
 """
 
 import logging
+import math
 import os
 
 from fastmcp import FastMCP
@@ -47,6 +48,7 @@ from .constants import (
     LOCALHOST_ADDRESSES,
     SECONDS_PER_MINUTE,
     SERVER_NAME_FORMAT,
+    WILDCARD_BIND_ADDRESSES,
     ENV_OAUTH_ISSUER_URL,
     ENV_OAUTH_AUDIENCE,
     ENV_OAUTH_REQUIRED_SCOPES,
@@ -59,6 +61,53 @@ logger = logging.getLogger(__name__)
 
 HTTP_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
 SCOPES_DELIMITER = ","
+
+
+def _parse_positive_int(env_var: str, default: int) -> int:
+    """
+    Read an environment variable as a positive integer.
+
+    Raises ValueError with an actionable message if the value is not a
+    valid integer or is less than 1.
+    """
+    raw = os.getenv(env_var, str(default))
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid value for {env_var}: {raw!r} is not an integer. "
+            f"Provide a positive integer (default: {default})."
+        )
+    if value < 1:
+        raise ValueError(
+            f"Invalid value for {env_var}: {value} is not allowed. "
+            f"Value must be >= 1 (default: {default})."
+        )
+    return value
+
+
+def _parse_positive_float(env_var: str, default: float) -> float:
+    """
+    Read an environment variable as a positive finite float.
+
+    Raises ValueError with an actionable message if the value is not a
+    valid finite float or is not greater than 0. Explicitly rejects nan
+    and inf which float() accepts but which produce undefined behaviour.
+    """
+    raw = os.getenv(env_var, str(default))
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError(
+            f"Invalid value for {env_var}: {raw!r} is not a number. "
+            f"Provide a positive finite number (default: {default})."
+        )
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(
+            f"Invalid value for {env_var}: {value!r} is not allowed. "
+            f"Value must be a positive finite number (default: {default})."
+        )
+    return value
 
 
 def _build_jwt_verifier_from_env() -> JWTVerifier | None:
@@ -141,6 +190,24 @@ def build_auth_provider(
     # where the bind address (0.0.0.0) differs from the public-facing URL.
     # When constructing from host:port, use https:// for non-localhost hosts.
     explicit_base = os.getenv(ENV_OAUTH_SERVER_BASE_URL)
+
+    # Warn when OAuth is active but the bind host is a wildcard address and no
+    # explicit public URL has been provided. The derived metadata URL would be
+    # e.g. https://0.0.0.0:8000 — not client-reachable, which silently breaks
+    # the PKCE discovery flow for MCP clients.
+    if not explicit_base and host in WILDCARD_BIND_ADDRESSES:
+        logger.warning(
+            "OAuth is enabled and MCP_HOST is a wildcard address (%s) but "
+            "OAUTH_SERVER_BASE_URL is not set. The OAuth resource metadata will "
+            "advertise an unreachable URL (%s:%s), which may break the PKCE "
+            "authentication flow for MCP clients. "
+            "Set OAUTH_SERVER_BASE_URL to the public-facing URL of this server, "
+            "e.g. OAUTH_SERVER_BASE_URL=http://localhost:8000",
+            host,
+            host,
+            port,
+        )
+
     is_localhost_bind = host in LOCALHOST_ADDRESSES
     if explicit_base:
         server_base_url = explicit_base
@@ -224,8 +291,8 @@ def build_mcp_server(
     auth_provider = build_auth_provider(host=host, port=port)
 
     # Configure rate limiting (convert per-minute to per-second for token bucket)
-    rate_limit = int(
-        os.getenv(ENV_MCP_RATE_LIMIT_PER_MINUTE, str(DEFAULT_RATE_LIMIT_PER_MINUTE))
+    rate_limit = _parse_positive_int(
+        ENV_MCP_RATE_LIMIT_PER_MINUTE, DEFAULT_RATE_LIMIT_PER_MINUTE
     )
     rate_limiter = RateLimitingMiddleware(
         max_requests_per_second=rate_limit / SECONDS_PER_MINUTE,

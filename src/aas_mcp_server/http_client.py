@@ -15,6 +15,7 @@ returns None and no Authorization header is added.
 """
 
 import ipaddress
+import math
 import os
 from typing import Generator
 from urllib.parse import urlparse
@@ -167,10 +168,25 @@ def build_async_client(base_url: str) -> httpx.AsyncClient:
         Configured httpx.AsyncClient instance
 
     Raises:
-        ValueError: If base_url fails security validation
+        ValueError: If base_url fails security validation or AAS_HTTP_TIMEOUT
+                    is not a valid positive number.
     """
     validate_backend_url(base_url)
-    timeout = float(os.getenv(ENV_AAS_HTTP_TIMEOUT, str(DEFAULT_HTTP_TIMEOUT)))
+
+    _raw_timeout = os.getenv(ENV_AAS_HTTP_TIMEOUT, str(DEFAULT_HTTP_TIMEOUT))
+    try:
+        timeout = float(_raw_timeout)
+    except ValueError:
+        raise ValueError(
+            f"Invalid value for AAS_HTTP_TIMEOUT: {_raw_timeout!r} is not a number. "
+            f"Provide a positive finite number in seconds (default: {DEFAULT_HTTP_TIMEOUT})."
+        )
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError(
+            f"Invalid value for AAS_HTTP_TIMEOUT: {timeout!r} is not allowed. "
+            f"Value must be a positive finite number in seconds (default: {DEFAULT_HTTP_TIMEOUT})."
+        )
+
     return httpx.AsyncClient(
         base_url=base_url,
         headers={HEADER_ACCEPT: CONTENT_TYPE_JSON},

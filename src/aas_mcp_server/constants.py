@@ -90,6 +90,9 @@ SECONDS_PER_MINUTE = 60
 # OAuth / auth configuration
 JWKS_WELL_KNOWN_PATH = "/.well-known/jwks.json"
 LOCALHOST_ADDRESSES = frozenset({"127.0.0.1", "::1", "localhost"})
+# Wildcard bind addresses — not client-reachable and must not be advertised
+# in OAuth resource metadata without an explicit OAUTH_SERVER_BASE_URL override.
+WILDCARD_BIND_ADDRESSES = frozenset({"0.0.0.0", "::"})
 
 # ============================================================================
 # Path and Filter Delimiters (for openapi_loader)

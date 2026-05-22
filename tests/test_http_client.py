@@ -204,3 +204,61 @@ class TestValidateBackendUrl:
         """Client must not follow redirects to prevent open-redirect SSRF."""
         client = build_async_client("http://localhost:8081")
         assert client.follow_redirects is False
+
+
+class TestAasHttpTimeoutValidation:
+    """Tests for AAS_HTTP_TIMEOUT env var validation in build_async_client."""
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "not-a-number"})
+    def test_non_numeric_timeout_raises(self):
+        """Non-numeric AAS_HTTP_TIMEOUT raises ValueError with env var name."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "0"})
+    def test_zero_timeout_raises(self):
+        """AAS_HTTP_TIMEOUT=0 raises ValueError — must be > 0."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "-5"})
+    def test_negative_timeout_raises(self):
+        """Negative AAS_HTTP_TIMEOUT raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "0.1"})
+    def test_small_positive_timeout_accepted(self):
+        """Small positive float is a valid timeout."""
+        client = build_async_client(TEST_BASE_URL)
+        assert client.timeout.read == 0.1
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "nan"})
+    def test_nan_timeout_raises(self):
+        """AAS_HTTP_TIMEOUT=nan raises ValueError — nan is not finite."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "inf"})
+    def test_inf_timeout_raises(self):
+        """AAS_HTTP_TIMEOUT=inf raises ValueError — inf would create unbounded timeout."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)
+
+    @patch.dict(os.environ, {"AAS_HTTP_TIMEOUT": "-inf"})
+    def test_negative_inf_timeout_raises(self):
+        """AAS_HTTP_TIMEOUT=-inf raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="AAS_HTTP_TIMEOUT"):
+            build_async_client(TEST_BASE_URL)

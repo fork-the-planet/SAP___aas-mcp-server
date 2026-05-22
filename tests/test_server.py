@@ -815,3 +815,133 @@ class TestAudienceEnforcement:
         with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
             result = build_auth_provider(host="localhost", port=8000)
         assert result is not None
+
+
+class TestWildcardBindAddressWarning:
+    """Tests for H-1: wildcard bind host + missing OAUTH_SERVER_BASE_URL warning."""
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            "OAUTH_AUDIENCE": TEST_AUDIENCE,
+            # OAUTH_SERVER_BASE_URL intentionally absent
+        },
+    )
+    def test_wildcard_0000_without_server_base_url_warns(self, caplog):
+        """0.0.0.0 bind + no OAUTH_SERVER_BASE_URL → warning about unreachable metadata URL."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="0.0.0.0", port=8000)
+        assert result is not None  # still builds — not a hard failure
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert any("OAUTH_SERVER_BASE_URL" in m for m in warning_messages), (
+            f"Expected OAUTH_SERVER_BASE_URL warning, got: {warning_messages}"
+        )
+        assert any("0.0.0.0" in m for m in warning_messages)
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            "OAUTH_AUDIENCE": TEST_AUDIENCE,
+            # OAUTH_SERVER_BASE_URL intentionally absent
+        },
+    )
+    def test_wildcard_ipv6_without_server_base_url_warns(self, caplog):
+        """:: (IPv6 wildcard) bind + no OAUTH_SERVER_BASE_URL → warning."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="::", port=8000)
+        assert result is not None
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert any("OAUTH_SERVER_BASE_URL" in m for m in warning_messages)
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            "OAUTH_AUDIENCE": TEST_AUDIENCE,
+            "OAUTH_SERVER_BASE_URL": "http://localhost:8000",
+        },
+    )
+    def test_wildcard_with_server_base_url_no_warning(self, caplog):
+        """0.0.0.0 bind + OAUTH_SERVER_BASE_URL set → no wildcard warning."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="0.0.0.0", port=8000)
+        assert result is not None
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert not any(
+            "OAUTH_SERVER_BASE_URL" in m and "wildcard" in m.lower()
+            for m in warning_messages
+        ), "Should not warn about OAUTH_SERVER_BASE_URL when it is already set"
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            "OAUTH_AUDIENCE": TEST_AUDIENCE,
+        },
+    )
+    def test_localhost_bind_no_wildcard_warning(self, caplog):
+        """localhost bind → no wildcard warning (localhost is fine without OAUTH_SERVER_BASE_URL)."""
+        with caplog.at_level(logging.WARNING, logger="aas_mcp_server.server"):
+            result = build_auth_provider(host="127.0.0.1", port=8000)
+        assert result is not None
+        warning_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert not any("wildcard" in m.lower() for m in warning_messages)
+
+
+class TestRateLimitValidation:
+    """Tests for M-1: MCP_RATE_LIMIT_PER_MINUTE env var validation."""
+
+    @patch("aas_mcp_server.server.configure_logging")
+    @patch("aas_mcp_server.server.process_component_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.flatten_spec_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.curate_openapi_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.prune_unused_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.build_async_client")
+    @patch("aas_mcp_server.server.FastMCP")
+    @patch.dict(os.environ, {"MCP_RATE_LIMIT_PER_MINUTE": "not-a-number"}, clear=False)
+    def test_non_integer_rate_limit_raises(self, *args):
+        """Non-integer MCP_RATE_LIMIT_PER_MINUTE raises ValueError with env var name."""
+        import pytest
+
+        with pytest.raises(ValueError, match="MCP_RATE_LIMIT_PER_MINUTE"):
+            build_mcp_server(make_mock_component(), "http://localhost", False)
+
+    @patch("aas_mcp_server.server.configure_logging")
+    @patch("aas_mcp_server.server.process_component_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.flatten_spec_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.curate_openapi_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.prune_unused_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.build_async_client")
+    @patch("aas_mcp_server.server.FastMCP")
+    @patch.dict(os.environ, {"MCP_RATE_LIMIT_PER_MINUTE": "0"}, clear=False)
+    def test_zero_rate_limit_raises(self, *args):
+        """MCP_RATE_LIMIT_PER_MINUTE=0 raises ValueError — must be >= 1."""
+        import pytest
+
+        with pytest.raises(ValueError, match="MCP_RATE_LIMIT_PER_MINUTE"):
+            build_mcp_server(make_mock_component(), "http://localhost", False)
+
+    @patch("aas_mcp_server.server.configure_logging")
+    @patch("aas_mcp_server.server.process_component_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.flatten_spec_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.curate_openapi_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.prune_unused_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.build_async_client")
+    @patch("aas_mcp_server.server.FastMCP")
+    @patch.dict(os.environ, {"MCP_RATE_LIMIT_PER_MINUTE": "-10"}, clear=False)
+    def test_negative_rate_limit_raises(self, *args):
+        """Negative MCP_RATE_LIMIT_PER_MINUTE raises ValueError."""
+        import pytest
+
+        with pytest.raises(ValueError, match="MCP_RATE_LIMIT_PER_MINUTE"):
+            build_mcp_server(make_mock_component(), "http://localhost", False)
