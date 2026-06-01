@@ -54,7 +54,6 @@ TEST_SERVER_NAME = "test-server"
 # A plausible OAuth issuer URL used in unit tests (no network calls are made)
 TEST_ISSUER_URL = "https://idp.example.com/realms/test"
 TEST_AUDIENCE = "aas-mcp-server"
-TEST_JWKS_URI_CUSTOM = "https://idp.example.com/custom/jwks"
 
 # Seconds that "expired" tokens are past their expiry
 EXPIRED_OFFSET_SECONDS = 3600

@@ -659,12 +659,13 @@ class TestBuildAuthProvider:
             "OAUTH_AUDIENCE": TEST_AUDIENCE,
         },
     )
-    def test_issuer_url_reflects_configured_issuer(self, _mock_get):
-        """OIDCProxy is configured with the upstream IdP issuer URL."""
+    def test_issuer_url_defaults_to_server_base_url(self, _mock_get):
+        """issuer_url defaults to server base_url when not explicitly set."""
         result = build_auth_provider(host="127.0.0.1", port=8000)
         assert result is not None
-        # OIDCProxy stores issuer_url from OAuthProvider base class
-        assert result.issuer_url is not None
+        # OIDCProxy sets issuer_url = base_url when no explicit issuer_url is provided.
+        # With host=127.0.0.1 and port=8000 the derived server_base_url is http://127.0.0.1:8000.
+        assert str(result.issuer_url).rstrip("/") == "http://127.0.0.1:8000"
 
     @patch.dict(
         os.environ,
