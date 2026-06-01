@@ -8,22 +8,25 @@ This module orchestrates the complete MCP server construction pipeline:
 1. Process OpenAPI specification (derive from config + apply overlay)
 2. Curate the spec for safe tool generation (allowlist, read-only by default)
 3. Build HTTP client (no static auth — OAuth token is forwarded per-request)
-4. Build FastMCP RemoteAuthProvider if OAuth is configured
+4. Build OIDCProxy auth provider if OAuth is configured
 5. Generate FastMCP server from curated OpenAPI spec
 
-## Audience validation
+## Auth provider (OIDCProxy)
 
-OAUTH_AUDIENCE is always optional. When not set, a WARNING is logged at
-startup because audience validation is disabled. Operators who want strict
-audience enforcement should set OAUTH_AUDIENCE. Those who don't — including
-test/dev environments and setups where the OAuth provider and AAS backend
-share the same trust domain — can leave it unset.
+When OAUTH_ISSUER_URL and OAUTH_CLIENT_ID are both set, the server acts as an
+OAuth 2.1 Authorization Server via FastMCP's OIDCProxy. It exposes:
 
-There is no automatic hard-failure based on bind address or other runtime
-signals. Such heuristics proved too fragile: Docker containers routinely bind
-on 0.0.0.0 regardless of whether they are test or production, and using
-OAUTH_SERVER_BASE_URL as a signal penalises operators who set it for the
-correct reason (RFC 9728 metadata accuracy behind a reverse proxy).
+  /.well-known/oauth-authorization-server  (RFC 8414 — required by MCP clients)
+  /authorize                               (proxied to upstream IdP)
+  /token                                   (issues FastMCP-signed JWTs)
+  /register                                (DCR for MCP clients)
+  /auth/callback                           (upstream IdP redirect target)
+
+This pattern works with any OIDC-compliant IdP regardless of whether that IdP
+supports Dynamic Client Registration (SAP IAS, Keycloak, Azure AD, Okta, etc.).
+
+OAUTH_SERVER_BASE_URL must be set when binding to a wildcard address (0.0.0.0)
+so the server can advertise the correct public callback URL to the upstream IdP.
 """
 
 import logging
@@ -31,9 +34,8 @@ import math
 import os
 
 from fastmcp import FastMCP
-from fastmcp.server.auth import JWTVerifier, RemoteAuthProvider
+from fastmcp.server.auth import OIDCProxy
 from fastmcp.server.middleware.rate_limiting import RateLimitingMiddleware
-from pydantic import AnyHttpUrl
 
 from .config import ComponentConfig
 from .spec_processor import process_component_spec
@@ -44,15 +46,16 @@ from .logging import configure_logging
 from .constants import (
     DEFAULT_LOG_LEVEL,
     DEFAULT_RATE_LIMIT_PER_MINUTE,
-    JWKS_WELL_KNOWN_PATH,
     LOCALHOST_ADDRESSES,
     SECONDS_PER_MINUTE,
     SERVER_NAME_FORMAT,
     WILDCARD_BIND_ADDRESSES,
     ENV_OAUTH_ISSUER_URL,
+    ENV_OAUTH_CLIENT_ID,
+    ENV_OAUTH_CLIENT_SECRET,
+    ENV_OAUTH_JWT_SIGNING_KEY,
     ENV_OAUTH_AUDIENCE,
     ENV_OAUTH_REQUIRED_SCOPES,
-    ENV_OAUTH_JWKS_URI,
     ENV_OAUTH_SERVER_BASE_URL,
     ENV_MCP_RATE_LIMIT_PER_MINUTE,
 )
@@ -60,7 +63,6 @@ from .constants import (
 logger = logging.getLogger(__name__)
 
 HTTP_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
-SCOPES_DELIMITER = ","
 
 
 def _parse_positive_int(env_var: str, default: int) -> int:
@@ -110,108 +112,71 @@ def _parse_positive_float(env_var: str, default: float) -> float:
     return value
 
 
-def _build_jwt_verifier_from_env() -> JWTVerifier | None:
-    """
-    Build a JWTVerifier from environment variables, or return None.
-
-    Returns None when OAUTH_ISSUER_URL is not set (auth disabled).
-
-    OAUTH_AUDIENCE is optional. When absent, audience validation is disabled
-    and a WARNING is emitted. This is intentional: blocking startup on a
-    missing audience is too aggressive for containerised test/dev environments
-    where Docker bind addresses (0.0.0.0) cannot reliably distinguish test
-    from production. Operators who need strict audience enforcement should set
-    OAUTH_AUDIENCE explicitly.
-    """
-    issuer_url = os.getenv(ENV_OAUTH_ISSUER_URL)
-    if not issuer_url:
-        return None
-
-    audience = os.getenv(ENV_OAUTH_AUDIENCE)
-    if not audience:
-        logger.warning(
-            "OAUTH_ISSUER_URL is set but OAUTH_AUDIENCE is not. "
-            "Audience validation is DISABLED — tokens intended for other resource "
-            "servers may be accepted. Set OAUTH_AUDIENCE to the expected audience "
-            "value (must match what the AAS backend also accepts)."
-        )
-
-    scopes_raw = os.getenv(ENV_OAUTH_REQUIRED_SCOPES)
-    required_scopes: list[str] | None = None
-    if scopes_raw:
-        required_scopes = [
-            s.strip() for s in scopes_raw.split(SCOPES_DELIMITER) if s.strip()
-        ]
-
-    explicit_jwks = os.getenv(ENV_OAUTH_JWKS_URI)
-    jwks_uri = explicit_jwks or f"{issuer_url.rstrip('/')}{JWKS_WELL_KNOWN_PATH}"
-
-    return JWTVerifier(
-        jwks_uri=jwks_uri,
-        issuer=issuer_url,
-        audience=audience,
-        required_scopes=required_scopes,
-    )
-
-
-def build_jwt_verifier() -> JWTVerifier | None:
-    """
-    Return a JWTVerifier built from environment variables, or None.
-
-    Public wrapper retained for backward-compatibility with tests.
-    Production server construction uses build_auth_provider() which wraps
-    this in a RemoteAuthProvider to also serve the RFC 9728 discovery endpoint.
-    """
-    return _build_jwt_verifier_from_env()
+OIDC_CONFIG_SUFFIX = "/.well-known/openid-configuration"
 
 
 def build_auth_provider(
     host: str,
     port: int,
-) -> RemoteAuthProvider | None:
+) -> OIDCProxy | None:
     """
-    Build a FastMCP RemoteAuthProvider from environment variables, or return None.
-
-    RemoteAuthProvider wraps a JWTVerifier (for token validation) and also
-    serves the /.well-known/oauth-protected-resource/mcp endpoint (RFC 9728).
-    This endpoint tells MCP clients which authorization server issues valid
-    tokens, allowing them to perform the PKCE browser flow automatically.
+    Build a FastMCP OIDCProxy from environment variables, or return None.
 
     Returns None when OAUTH_ISSUER_URL is not set (auth disabled).
+
+    Raises ValueError with an actionable message when OAUTH_ISSUER_URL is set
+    but OAUTH_CLIENT_ID is missing (required for OIDCProxy).
+
+    OAUTH_ISSUER_URL accepts either the OIDC issuer base URL (e.g.
+    https://tenant.accounts.ondemand.com) or the full OIDC configuration URL
+    (e.g. https://tenant.accounts.ondemand.com/.well-known/openid-configuration).
+    When the base URL form is provided, the suffix is appended automatically.
     """
-    jwt_verifier = _build_jwt_verifier_from_env()
-    if jwt_verifier is None:
+    issuer_url = os.getenv(ENV_OAUTH_ISSUER_URL)
+    if not issuer_url:
         return None
 
-    issuer_url = os.getenv(ENV_OAUTH_ISSUER_URL)  # already validated non-None above
+    client_id = os.getenv(ENV_OAUTH_CLIENT_ID)
+    if not client_id:
+        raise ValueError(
+            "OAUTH_ISSUER_URL is set but OAUTH_CLIENT_ID is not. "
+            "OIDCProxy requires a client ID registered at the upstream IdP. "
+            "Set OAUTH_CLIENT_ID to the client ID from your IdP application registration."
+        )
 
-    # Derive the MCP server's public base URL for the RFC 9728 metadata endpoint.
-    # OAUTH_SERVER_BASE_URL can be set explicitly for reverse-proxy deployments
-    # where the bind address (0.0.0.0) differs from the public-facing URL.
-    # When constructing from host:port, use https:// for non-localhost hosts.
+    # Normalise to full OIDC configuration URL
+    config_url = (
+        issuer_url
+        if issuer_url.rstrip("/").endswith(OIDC_CONFIG_SUFFIX.lstrip("/"))
+        or issuer_url.rstrip("/").endswith("openid-configuration")
+        else issuer_url.rstrip("/") + OIDC_CONFIG_SUFFIX
+    )
+
+    client_secret = os.getenv(ENV_OAUTH_CLIENT_SECRET)
+    jwt_signing_key = os.getenv(ENV_OAUTH_JWT_SIGNING_KEY)
+    audience = os.getenv(ENV_OAUTH_AUDIENCE)
+
+    scopes_raw = os.getenv(ENV_OAUTH_REQUIRED_SCOPES)
+    required_scopes: list[str] | None = None
+    if scopes_raw:
+        required_scopes = [s.strip() for s in scopes_raw.split(",") if s.strip()]
+
+    # Derive the public base URL (used for /auth/callback redirect URI and RFC 8414 metadata)
     explicit_base = os.getenv(ENV_OAUTH_SERVER_BASE_URL)
 
-    # Warn when OAuth is active but the bind host is a wildcard address and no
-    # explicit public URL has been provided. The derived metadata URL would be
-    # e.g. https://0.0.0.0:8000 — not client-reachable, which silently breaks
-    # the PKCE discovery flow for MCP clients.
     if not explicit_base and host in WILDCARD_BIND_ADDRESSES:
         logger.warning(
             "OAuth is enabled and MCP_HOST is a wildcard address (%s) but "
-            "OAUTH_SERVER_BASE_URL is not set. The OAuth resource metadata will "
-            "advertise an unreachable URL (%s:%s), which may break the PKCE "
-            "authentication flow for MCP clients. "
+            "OAUTH_SERVER_BASE_URL is not set. The /auth/callback redirect URI "
+            "advertised to the upstream IdP will be unreachable. "
             "Set OAUTH_SERVER_BASE_URL to the public-facing URL of this server, "
             "e.g. OAUTH_SERVER_BASE_URL=http://localhost:8000",
             host,
-            host,
-            port,
         )
 
-    is_localhost_bind = host in LOCALHOST_ADDRESSES
     if explicit_base:
         server_base_url = explicit_base
-    elif is_localhost_bind:
+    elif host in LOCALHOST_ADDRESSES:
         formatted_host = f"[{host}]" if ":" in host else host
         server_base_url = f"http://{formatted_host}:{port}"
     else:
@@ -219,19 +184,26 @@ def build_auth_provider(
         server_base_url = f"https://{formatted_host}:{port}"
 
     logger.info(
-        "OAuth 2.1 inbound auth enabled: issuer=%s, audience=%s, "
-        "scopes=%s, jwks_uri=%s, server_base_url=%s",
-        issuer_url,
-        os.getenv(ENV_OAUTH_AUDIENCE) or "<not set>",
-        jwt_verifier.required_scopes or "<not set>",
-        jwt_verifier.jwks_uri,
+        "OAuth 2.1 OIDCProxy enabled: config_url=%s, client_id=%s, "
+        "audience=%s, scopes=%s, server_base_url=%s",
+        config_url,
+        client_id,
+        audience or "<not set>",
+        required_scopes or "<not set>",
         server_base_url,
     )
 
-    return RemoteAuthProvider(
-        token_verifier=jwt_verifier,
-        authorization_servers=[AnyHttpUrl(issuer_url)],
+    return OIDCProxy(
+        config_url=config_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        audience=audience,
+        required_scopes=required_scopes,
         base_url=server_base_url,
+        jwt_signing_key=jwt_signing_key,
+        forward_resource=False,  # Disable RFC 8707 resource param — rejected by SAP IAS
+                                 # and unnecessary for non-resource-indicator IdPs.
+        require_authorization_consent="external",  # Consent handled by upstream IdP
     )
 
 
