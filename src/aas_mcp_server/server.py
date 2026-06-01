@@ -136,7 +136,7 @@ def build_auth_provider(
     if not issuer_url:
         return None
 
-    client_id = os.getenv(ENV_OAUTH_CLIENT_ID)
+    client_id = (os.getenv(ENV_OAUTH_CLIENT_ID) or "").strip() or None
     if not client_id:
         raise ValueError(
             "OAUTH_ISSUER_URL is set but OAUTH_CLIENT_ID is not. "
@@ -145,11 +145,12 @@ def build_auth_provider(
         )
 
     # Normalise to full OIDC configuration URL
+    _issuer_normalized = issuer_url.strip().rstrip("/")
     config_url = (
-        issuer_url
-        if issuer_url.rstrip("/").endswith(OIDC_CONFIG_SUFFIX.lstrip("/"))
-        or issuer_url.rstrip("/").endswith("openid-configuration")
-        else issuer_url.rstrip("/") + OIDC_CONFIG_SUFFIX
+        _issuer_normalized
+        if _issuer_normalized.endswith(OIDC_CONFIG_SUFFIX.lstrip("/"))
+        or _issuer_normalized.endswith("openid-configuration")
+        else _issuer_normalized + OIDC_CONFIG_SUFFIX
     )
 
     client_secret = os.getenv(ENV_OAUTH_CLIENT_SECRET)
@@ -165,13 +166,12 @@ def build_auth_provider(
     explicit_base = os.getenv(ENV_OAUTH_SERVER_BASE_URL)
 
     if not explicit_base and host in WILDCARD_BIND_ADDRESSES:
-        logger.warning(
-            "OAuth is enabled and MCP_HOST is a wildcard address (%s) but "
-            "OAUTH_SERVER_BASE_URL is not set. The /auth/callback redirect URI "
-            "advertised to the upstream IdP will be unreachable. "
+        raise ValueError(
+            f"OAuth is enabled and MCP_HOST is a wildcard address ({host}) but "
+            "OAUTH_SERVER_BASE_URL is not set. OIDCProxy needs a reachable public URL "
+            "to register the /auth/callback redirect URI with the upstream IdP. "
             "Set OAUTH_SERVER_BASE_URL to the public-facing URL of this server, "
-            "e.g. OAUTH_SERVER_BASE_URL=http://localhost:8000",
-            host,
+            "e.g. OAUTH_SERVER_BASE_URL=http://localhost:8000"
         )
 
     if explicit_base:
