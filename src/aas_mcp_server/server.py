@@ -36,6 +36,7 @@ import os
 from fastmcp import FastMCP
 from fastmcp.server.auth import OIDCProxy
 from fastmcp.server.middleware.rate_limiting import RateLimitingMiddleware
+from key_value.aio.stores.memory import MemoryStore
 
 from .config import ComponentConfig
 from .spec_processor import process_component_spec
@@ -204,6 +205,7 @@ def build_auth_provider(
         forward_resource=False,  # Disable RFC 8707 resource param — rejected by SAP IAS
                                  # and unnecessary for non-resource-indicator IdPs.
         require_authorization_consent="external",  # Consent handled by upstream IdP
+        client_storage=MemoryStore(),  # Avoid disk storage — container home dir may not exist
     )
 
 
