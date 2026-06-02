@@ -41,6 +41,7 @@ from key_value.aio.stores.memory import MemoryStore
 from .config import ComponentConfig
 from .spec_processor import process_component_spec
 from .schema_flattener import flatten_spec_schemas
+from .backend_auth import build_backend_token_provider
 from .http_client import build_async_client
 from .tool_curation import curate_openapi_spec, prune_unused_schemas
 from .logging import configure_logging
@@ -194,18 +195,32 @@ def build_auth_provider(
         server_base_url,
     )
 
+    # Build extra params to send to upstream IdP during authorization.
+    # Always request "openid" scope from the IdP so it returns an id_token,
+    # but do NOT enforce scopes on FastMCP-issued tokens (required_scopes=None)
+    # because MCP clients (Claude CLI, OpenCode) register via DCR with no
+    # scopes, so FastMCP tokens will have an empty scope list.
+    extra_authorize_params: dict[str, str] = {"scope": "openid"}
+    if required_scopes:
+        # Merge any user-configured scopes into the upstream request
+        extra_authorize_params["scope"] = " ".join(
+            dict.fromkeys(["openid", *required_scopes])
+        )
+
     return OIDCProxy(
         config_url=config_url,
         client_id=client_id,
         client_secret=client_secret,
         audience=audience,
-        required_scopes=required_scopes,
+        required_scopes=None,  # Don't enforce scopes on FastMCP tokens — MCP clients
+                               # register via DCR with no scopes.
         base_url=server_base_url,
         jwt_signing_key=jwt_signing_key,
         forward_resource=False,  # Disable RFC 8707 resource param — rejected by SAP IAS
                                  # and unnecessary for non-resource-indicator IdPs.
         require_authorization_consent="external",  # Consent handled by upstream IdP
         client_storage=MemoryStore(),  # Avoid disk storage — container home dir may not exist
+        extra_authorize_params=extra_authorize_params,
     )
 
 
@@ -258,8 +273,11 @@ def build_mcp_server(
     # Remove schemas no longer reachable from the curated paths
     curated = prune_unused_schemas(curated)
 
-    # Build HTTP client (no static auth — token forwarding via BearerTokenAuth)
-    client = build_async_client(base_url=base_url)
+    # Build backend token provider (selects forward/token_exchange/none from env vars)
+    backend_token_provider = build_backend_token_provider()
+
+    # Build HTTP client with the selected backend token strategy
+    client = build_async_client(base_url=base_url, backend_token_provider=backend_token_provider)
 
     # Build auth provider (None when OAuth not configured)
     auth_provider = build_auth_provider(host=host, port=port)

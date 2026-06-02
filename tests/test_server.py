@@ -308,7 +308,8 @@ class TestBuildMcpServer:
             enable_writes=False,
         )
 
-        mock_build_client.assert_called_once_with(base_url="http://prod-server:9000")
+        mock_build_client.assert_called_once()
+        assert mock_build_client.call_args.kwargs["base_url"] == "http://prod-server:9000"
 
     @patch("aas_mcp_server.server.configure_logging")
     @patch("aas_mcp_server.server.process_component_spec")
