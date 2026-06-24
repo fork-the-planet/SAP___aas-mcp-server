@@ -196,16 +196,22 @@ def build_auth_provider(
     )
 
     # Build extra params to send to upstream IdP during authorization.
-    # Always request "openid" scope from the IdP so it returns an id_token,
-    # but do NOT enforce scopes on FastMCP-issued tokens (required_scopes=None)
+    # Request "openid" scope by default so the IdP returns an id_token.
+    # If OAUTH_REQUIRED_SCOPES is set, request those specific scopes (useful for
+    # single-tenant deployments). If not set, omit the scope parameter entirely
+    # so the IdP grants all scopes the user is authorized for (better for
+    # multi-tenant scenarios where scope names include tenant identifiers).
+    # Do NOT enforce scopes on FastMCP-issued tokens (required_scopes=None)
     # because MCP clients (Claude CLI, OpenCode) register via DCR with no
     # scopes, so FastMCP tokens will have an empty scope list.
-    extra_authorize_params: dict[str, str] = {"scope": "openid"}
+    extra_authorize_params: dict[str, str] = {}
     if required_scopes:
-        # Merge any user-configured scopes into the upstream request
+        # User explicitly configured scopes — request openid + those scopes
         extra_authorize_params["scope"] = " ".join(
             dict.fromkeys(["openid", *required_scopes])
         )
+    # If required_scopes is not set, don't send scope parameter at all.
+    # By OAuth spec, the IdP will grant all scopes the user is authorized for.
 
     return OIDCProxy(
         config_url=config_url,
