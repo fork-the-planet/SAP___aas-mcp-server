@@ -13,14 +13,15 @@ components:
   # AAS Repository Configuration
   # ===========================================================================
   aas-repo:
-    # Official AAS OpenAPI spec (REQUIRED if no implementation_spec)
+    # Official AAS OpenAPI spec
+    # At least one of official_spec or implementation_spec must be provided.
     # Download from: https://github.com/admin-shell-io/aas-specs
     official_spec: specs/AssetAdministrationShellRepositoryServiceSpecification-V3.1.1_SSP-001.yaml
 
-    # Implementation-specific spec (OPTIONAL)
-    # If both official + implementation specs are provided, the server will:
-    #   1. Derive intersection (only endpoints your backend supports)
-    #   2. Apply overlay if provided
+    # Implementation-specific spec
+    # Provide this alongside official_spec to derive an intersection (only endpoints
+    # your backend actually implements). Or provide this alone (without official_spec)
+    # to use your backend's spec directly without intersection.
     # implementation_spec: specs/my-backend-aas-repo-endpoints.yaml
 
     # Overlay for customizing operation names and descriptions (OPTIONAL)
