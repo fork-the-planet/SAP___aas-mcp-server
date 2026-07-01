@@ -265,6 +265,24 @@ def build_mcp_server(
                 "production. Ensure a TLS-terminating reverse proxy is in place."
             )
 
+    # When OAUTH_REQUIRED_SCOPES is set, inform operators that scope enforcement is
+    # delegated to the upstream IdP's /authorize step — not applied per-request on
+    # FastMCP-issued tokens. This is intentional: DCR clients register without scopes
+    # so FastMCP tokens carry an empty scope list; enforcing required_scopes on the
+    # JWTVerifier would reject every MCP client request. The IdP only issues an
+    # authorization code to users who hold the requested scopes, which is the correct
+    # enforcement point for this architecture.
+    scopes_raw = os.getenv(ENV_OAUTH_REQUIRED_SCOPES)
+    if scopes_raw and scopes_raw.strip():
+        logger.info(
+            "OAUTH_REQUIRED_SCOPES is set (%s). Scope enforcement is delegated to the "
+            "upstream IdP: these scopes are requested during the PKCE authorization flow "
+            "and the IdP will only authorize users who hold them. FastMCP-issued tokens "
+            "are not re-validated for scopes because MCP clients register via DCR without "
+            "declaring scopes.",
+            scopes_raw.strip(),
+        )
+
     # Process spec according to config (derive + apply overlay)
     spec = process_component_spec(component_config)
 

@@ -26,7 +26,6 @@ from typing import AsyncGenerator
 from urllib.parse import urlparse
 
 import httpx
-from fastmcp.server.dependencies import get_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -166,10 +165,9 @@ class BearerTokenAuth(httpx.Auth):
         token_str = await self._provider.get_token()
         if token_str is not None:
             logger.debug(
-                "Backend token obtained via %s: length=%d, prefix=%s...",
+                "Backend token obtained via %s: length=%d",
                 type(self._provider).__name__,
                 len(token_str),
-                token_str[:6],
             )
             request.headers[HEADER_AUTHORIZATION] = AUTH_BEARER_FORMAT.format(token=token_str)
         else:

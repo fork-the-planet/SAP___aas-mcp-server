@@ -92,6 +92,9 @@ class TokenExchangeStrategy:
     The issued token has ``aud`` matching the backend's client ID so the
     backend accepts it.
 
+    A single ``httpx.AsyncClient`` is created at construction time and reused
+    across all calls to avoid connection-churn overhead under load.
+
     Args:
         token_endpoint: Full URL of the IdP's token endpoint.
         client_id: Client ID for authenticating the exchange request (MCP server's ID).
@@ -113,6 +116,8 @@ class TokenExchangeStrategy:
         self.client_secret = client_secret
         self.audience = audience
         self.scope = scope
+        # Shared client — created once, reused per request to avoid connection churn.
+        self._http_client = httpx.AsyncClient()
 
     async def get_token(self) -> str | None:
         access_token = get_access_token()
@@ -138,13 +143,12 @@ class TokenExchangeStrategy:
         )
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.token_endpoint,
-                    data=data,
-                    auth=(self.client_id, self.client_secret),
-                )
-                response.raise_for_status()
+            response = await self._http_client.post(
+                self.token_endpoint,
+                data=data,
+                auth=(self.client_id, self.client_secret),
+            )
+            response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             raise RuntimeError(
                 f"Backend token exchange failed at {self.token_endpoint}: "
@@ -158,7 +162,22 @@ class TokenExchangeStrategy:
                 f"Check BACKEND_AUTH_TOKEN_ENDPOINT ({self.token_endpoint}) is reachable."
             ) from exc
 
-        payload = response.json()
+        try:
+            payload = response.json()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Backend token exchange at {self.token_endpoint} returned a non-JSON response "
+                f"(content-type: {response.headers.get('content-type', '<unknown>')}). "
+                f"Expected an OAuth 2.0 token response with 'access_token'."
+            ) from exc
+
+        if "access_token" not in payload:
+            raise RuntimeError(
+                f"Backend token exchange at {self.token_endpoint} succeeded (HTTP 200) but "
+                f"the response is missing the 'access_token' field. "
+                f"Check that the IdP is returning a valid OAuth 2.0 token response."
+            )
+
         exchanged_token: str = payload["access_token"]
         logger.debug(
             "TokenExchangeStrategy: exchange succeeded, token length=%d",

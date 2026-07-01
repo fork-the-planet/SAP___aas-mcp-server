@@ -163,9 +163,10 @@ components:
 #   When not set, audience validation is disabled (not recommended for production).
 #
 # OAUTH_REQUIRED_SCOPES   (Optional)
-#   Comma-separated list of OAuth scopes required on every token.
-#   These are also requested from the upstream IdP during the PKCE flow.
-#   Example: openid email profile
+#   Comma-separated list of OAuth scopes requested from the upstream IdP during
+#   the PKCE authorization flow. The IdP will only authorize users who hold these
+#   scopes. Scope enforcement happens at the IdP — not per-request on FastMCP tokens.
+#   Example: openid,email,profile
 #
 # OAUTH_SERVER_BASE_URL   (Required when MCP_HOST is 0.0.0.0 or ::)
 #   Public-facing base URL of this server. Used for:

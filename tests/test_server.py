@@ -932,3 +932,51 @@ class TestRateLimitValidation:
 
         with pytest.raises(ValueError, match="MCP_RATE_LIMIT_PER_MINUTE"):
             build_mcp_server(make_mock_component(), "http://localhost", False)
+
+    @patch.dict(
+        os.environ,
+        {
+            "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
+            "OAUTH_CLIENT_ID": TEST_CLIENT_ID,
+            "OAUTH_CLIENT_SECRET": TEST_CLIENT_SECRET,
+            "OAUTH_REQUIRED_SCOPES": "openid profile",
+        },
+        clear=False,
+    )
+    @patch("aas_mcp_server.server.process_component_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.flatten_spec_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.curate_openapi_spec", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.prune_unused_schemas", return_value=EMPTY_SPEC)
+    @patch("aas_mcp_server.server.build_async_client")
+    @patch("aas_mcp_server.server.FastMCP")
+    @patch("aas_mcp_server.server.build_auth_provider", return_value=None)
+    def test_scope_delegation_logged_when_required_scopes_set(self, *args):
+        """When OAUTH_REQUIRED_SCOPES is configured, an INFO log must explain scope enforcement
+        is delegated to the upstream IdP (not applied per-request on FastMCP tokens)."""
+        import logging
+
+        import aas_mcp_server.server as _server_mod
+        captured = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record):
+                captured.append(record.getMessage())
+
+        handler = _Capture(level=logging.INFO)
+        _server_mod.logger.addHandler(handler)
+        old_level = _server_mod.logger.level
+        _server_mod.logger.setLevel(logging.INFO)
+        try:
+            build_mcp_server(make_mock_component(), "http://localhost", False)
+        finally:
+            _server_mod.logger.removeHandler(handler)
+            _server_mod.logger.setLevel(old_level)
+
+        all_output = " ".join(captured).lower()
+        assert any(
+            keyword in all_output
+            for keyword in ("scope", "idp", "upstream", "delegat")
+        ), (
+            f"Expected a log message mentioning scope delegation to upstream IdP, "
+            f"but got: {captured!r}"
+        )

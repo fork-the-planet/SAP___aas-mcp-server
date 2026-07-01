@@ -138,6 +138,40 @@ class TestBearerTokenAuth:
         auth = BearerTokenAuth()
         assert isinstance(auth._provider, ForwardStrategy)
 
+    @pytest.mark.asyncio
+    async def test_no_token_content_in_debug_logs(self):
+        """Token string must not appear in debug logs — even partial disclosure is a security risk."""
+        import logging
+
+        # Use a token where even the first 4 chars are unique enough to assert on
+        token = "TOPSECRET-token-xyz"
+        mock_provider = MagicMock()
+        mock_provider.get_token = AsyncMock(return_value=token)
+
+        # Install a handler directly on the module logger to capture records
+        import aas_mcp_server.http_client as _mod
+        captured = []
+
+        class _Capture(logging.Handler):
+            def emit(self, record):
+                captured.append(self.format(record))
+
+        handler = _Capture(level=logging.DEBUG)
+        _mod.logger.addHandler(handler)
+        old_level = _mod.logger.level
+        _mod.logger.setLevel(logging.DEBUG)
+        try:
+            await self._run_auth_flow(BearerTokenAuth(provider=mock_provider))
+        finally:
+            _mod.logger.removeHandler(handler)
+            _mod.logger.setLevel(old_level)
+
+        all_output = " ".join(captured)
+        # The token itself must not appear
+        assert token not in all_output, f"Full token found in log output: {all_output!r}"
+        # Nor any prefix of it (current code logs token[:6] = "TOPSEC")
+        assert "TOPSEC" not in all_output, f"Token prefix found in log output: {all_output!r}"
+
 
 class TestConstants:
     """Tests for module-level constants."""

@@ -72,24 +72,28 @@ class TestNoneStrategy:
 # ---------------------------------------------------------------------------
 
 class TestTokenExchangeStrategy:
+    def _make_mock_client(self, json_response: dict, status_code: int = 200) -> AsyncMock:
+        """Build a mock httpx.AsyncClient with a preset POST response."""
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.raise_for_status = MagicMock()
+        mock_response.headers = {"content-type": "application/json"}
+        mock_response.json.return_value = json_response
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        return mock_client, mock_response
+
     @pytest.mark.asyncio
     async def test_exchanges_upstream_token_for_backend_token(self):
         """TokenExchangeStrategy POSTs to token endpoint and returns access_token."""
         mock_upstream = MagicMock()
         mock_upstream.token = "user-upstream-token"
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"access_token": "backend-token-xyz", "token_type": "Bearer"}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(return_value=mock_response)
-        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
-        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client, _ = self._make_mock_client({"access_token": "backend-token-xyz", "token_type": "Bearer"})
 
         with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
-             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_http_client):
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client):
             strategy = TokenExchangeStrategy(
                 token_endpoint="https://idp.example.com/oauth/token",
                 client_id="mcp-client-id",
@@ -121,18 +125,10 @@ class TestTokenExchangeStrategy:
         mock_upstream = MagicMock()
         mock_upstream.token = "user-token"
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"access_token": "scoped-backend-token", "token_type": "Bearer"}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(return_value=mock_response)
-        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
-        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client, _ = self._make_mock_client({"access_token": "scoped-backend-token", "token_type": "Bearer"})
 
         with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
-             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_http_client):
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client):
             strategy = TokenExchangeStrategy(
                 token_endpoint="https://idp.example.com/oauth/token",
                 client_id="mcp-client-id",
@@ -142,7 +138,7 @@ class TestTokenExchangeStrategy:
             )
             await strategy.get_token()
 
-        call_kwargs = mock_http_client.post.call_args
+        call_kwargs = mock_client.post.call_args
         data = call_kwargs[1]["data"] if "data" in call_kwargs[1] else call_kwargs[0][1]
         assert "scope" in data
         assert data["scope"] == "read write"
@@ -162,13 +158,11 @@ class TestTokenExchangeStrategy:
         )
         mock_response.json.return_value = {"error": "invalid_grant"}
 
-        mock_http_client = AsyncMock()
-        mock_http_client.post = AsyncMock(return_value=mock_response)
-        mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
-        mock_http_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
 
         with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
-             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_http_client):
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client):
             strategy = TokenExchangeStrategy(
                 token_endpoint="https://idp.example.com/oauth/token",
                 client_id="mcp-client-id",
@@ -178,6 +172,81 @@ class TestTokenExchangeStrategy:
             )
             with pytest.raises(RuntimeError, match="token exchange"):
                 await strategy.get_token()
+
+    @pytest.mark.asyncio
+    async def test_raises_on_missing_access_token_in_response(self):
+        """TokenExchangeStrategy raises RuntimeError when response has no access_token field."""
+        mock_upstream = MagicMock()
+        mock_upstream.token = "user-token"
+
+        mock_client, _ = self._make_mock_client({"token_type": "Bearer"})  # missing access_token
+
+        with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client):
+            strategy = TokenExchangeStrategy(
+                token_endpoint="https://idp.example.com/oauth/token",
+                client_id="mcp-client-id",
+                client_secret="mcp-secret",
+                audience="backend-client-id",
+                scope=None,
+            )
+            with pytest.raises(RuntimeError, match="access_token"):
+                await strategy.get_token()
+
+    @pytest.mark.asyncio
+    async def test_raises_on_non_json_response(self):
+        """TokenExchangeStrategy raises RuntimeError when response is not valid JSON."""
+        import httpx as _httpx
+
+        mock_upstream = MagicMock()
+        mock_upstream.token = "user-token"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = MagicMock()
+        mock_response.headers = {"content-type": "text/html"}
+        mock_response.json.side_effect = _httpx.DecodingError("not json", request=MagicMock())
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client):
+            strategy = TokenExchangeStrategy(
+                token_endpoint="https://idp.example.com/oauth/token",
+                client_id="mcp-client-id",
+                client_secret="mcp-secret",
+                audience="backend-client-id",
+                scope=None,
+            )
+            with pytest.raises(RuntimeError, match="[Jj][Ss][Oo][Nn]|[Pp]arse|[Rr]esponse"):
+                await strategy.get_token()
+
+    @pytest.mark.asyncio
+    async def test_reuses_http_client_across_calls(self):
+        """TokenExchangeStrategy reuses a single httpx.AsyncClient across multiple get_token calls."""
+        mock_upstream = MagicMock()
+        mock_upstream.token = "user-token"
+
+        mock_client, _ = self._make_mock_client({"access_token": "backend-token", "token_type": "Bearer"})
+
+        with patch("aas_mcp_server.backend_auth.get_access_token", return_value=mock_upstream), \
+             patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_client) as mock_client_cls:
+            strategy = TokenExchangeStrategy(
+                token_endpoint="https://idp.example.com/oauth/token",
+                client_id="mcp-client-id",
+                client_secret="mcp-secret",
+                audience="backend-client-id",
+                scope=None,
+            )
+            await strategy.get_token()
+            await strategy.get_token()
+
+        # AsyncClient() constructor should be called at most once (at init), not once per request
+        assert mock_client_cls.call_count <= 1, (
+            f"httpx.AsyncClient() was instantiated {mock_client_cls.call_count} times; "
+            "expected at most 1 (client should be reused, not created per request)"
+        )
 
 
 # ---------------------------------------------------------------------------
