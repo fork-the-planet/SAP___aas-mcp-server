@@ -185,6 +185,20 @@ class TokenExchangeStrategy:
         )
         return exchanged_token
 
+    async def aclose(self) -> None:
+        """Close the shared httpx.AsyncClient and release the connection pool.
+
+        Should be called on server shutdown. Wired into the FastMCP server
+        lifespan by build_mcp_server so it is called automatically.
+        """
+        await self._http_client.aclose()
+
+    async def __aenter__(self) -> "TokenExchangeStrategy":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        await self.aclose()
+
 
 def _derive_token_endpoint_from_issuer(issuer_url: str) -> str:
     """Derive a token endpoint URL from an OIDC issuer URL.

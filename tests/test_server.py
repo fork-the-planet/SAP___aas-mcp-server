@@ -9,9 +9,10 @@ Tests the MCP server builder orchestration.
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 from fastmcp.server.auth import OIDCProxy
 from fastmcp.server.middleware.rate_limiting import RateLimitingMiddleware
 
@@ -318,6 +319,7 @@ class TestBuildMcpServer:
     @patch("aas_mcp_server.server.prune_unused_schemas")
     @patch("aas_mcp_server.server.build_async_client")
     @patch("aas_mcp_server.server.FastMCP")
+    @patch.dict(os.environ, {}, clear=True)
     def test_creates_fastmcp_server_with_curated_spec(
         self,
         mock_fastmcp_class,
@@ -352,6 +354,7 @@ class TestBuildMcpServer:
             auth=None,
             middleware=mock_fastmcp_class.from_openapi.call_args.kwargs["middleware"],
             mask_error_details=True,
+            lifespan=mock_fastmcp_class.from_openapi.call_args.kwargs["lifespan"],
         )
 
     @patch("aas_mcp_server.server.configure_logging")
@@ -621,6 +624,57 @@ class TestBuildMcpServerAuth:
         assert any(isinstance(m, RateLimitingMiddleware) for m in middleware)
 
 
+class TestTokenExchangeShutdownLifecycle:
+    """Tests that build_mcp_server wires TokenExchangeStrategy.aclose() into the server lifespan."""
+
+    @patch("aas_mcp_server.server.configure_logging")
+    @patch("aas_mcp_server.server.build_auth_provider", return_value=None)
+    @patch.dict(
+        os.environ,
+        {
+            "BACKEND_AUTH_STRATEGY": "token_exchange",
+            "BACKEND_AUTH_AUDIENCE": "backend-client-id",
+            "BACKEND_AUTH_TOKEN_ENDPOINT": "https://idp.example.com/oauth/token",
+            "OAUTH_CLIENT_ID": "mcp-client-id",
+            "OAUTH_CLIENT_SECRET": "mcp-secret",
+        },
+        clear=True,
+    )
+    @pytest.mark.asyncio
+    async def test_lifespan_calls_aclose_on_token_exchange_strategy(self, *args):
+        """When TokenExchangeStrategy is used, the server lifespan must call aclose()
+        on shutdown to release the shared httpx connection pool.
+
+        Uses _lifespan_manager() which invokes self._lifespan(self) — the same
+        path the MCP transport takes when the server starts and stops.
+        """
+        import httpx
+
+        mock_http_client = AsyncMock(spec=httpx.AsyncClient)
+
+        valid_spec = {
+            "openapi": "3.0.0",
+            "info": {"title": "Test", "version": "0.0.1"},
+            "paths": {},
+        }
+
+        with patch("aas_mcp_server.backend_auth.httpx.AsyncClient", return_value=mock_http_client), \
+             patch("aas_mcp_server.server.process_component_spec", return_value=valid_spec), \
+             patch("aas_mcp_server.server.flatten_spec_schemas", return_value=valid_spec), \
+             patch("aas_mcp_server.server.curate_openapi_spec", return_value=valid_spec), \
+             patch("aas_mcp_server.server.prune_unused_schemas", return_value=valid_spec):
+
+            mcp = build_mcp_server(make_mock_component(), "http://localhost:8080", False)
+
+            # _lifespan_manager() calls self._lifespan(self) — the same path the MCP
+            # transport takes. mcp.lifespan() only iterates providers, not _lifespan.
+            async with mcp._lifespan_manager():
+                pass  # server running — aclose must NOT be called yet
+
+        # After the lifespan context exits (shutdown), aclose must have been called
+        mock_http_client.aclose.assert_awaited_once_with()
+
+
 @patch(
     "fastmcp.server.auth.oidc_proxy.httpx.get",
     return_value=_make_mock_oidc_response(),
@@ -706,6 +760,7 @@ class TestBuildAuthProvider:
             "OAUTH_ISSUER_URL": TEST_ISSUER_URL,
             # OAUTH_CLIENT_ID intentionally absent
         },
+        clear=True,
     )
     def test_missing_client_id_raises_value_error(self, _mock_get):
         """OAUTH_ISSUER_URL set but OAUTH_CLIENT_ID absent → ValueError."""
@@ -951,8 +1006,8 @@ class TestRateLimitValidation:
     @patch("aas_mcp_server.server.FastMCP")
     @patch("aas_mcp_server.server.build_auth_provider", return_value=None)
     def test_scope_delegation_logged_when_required_scopes_set(self, *args):
-        """When OAUTH_REQUIRED_SCOPES is configured, an INFO log must explain scope enforcement
-        is delegated to the upstream IdP (not applied per-request on FastMCP tokens)."""
+        """When OAUTH_REQUIRED_SCOPES is configured, a WARNING must be emitted explaining
+        that scope enforcement is per-authorization-flow only, not per-request."""
         import logging
 
         import aas_mcp_server.server as _server_mod
@@ -960,23 +1015,31 @@ class TestRateLimitValidation:
 
         class _Capture(logging.Handler):
             def emit(self, record):
-                captured.append(record.getMessage())
+                captured.append((record.levelno, record.getMessage()))
 
-        handler = _Capture(level=logging.INFO)
+        handler = _Capture(level=logging.WARNING)
         _server_mod.logger.addHandler(handler)
         old_level = _server_mod.logger.level
-        _server_mod.logger.setLevel(logging.INFO)
+        _server_mod.logger.setLevel(logging.WARNING)
         try:
             build_mcp_server(make_mock_component(), "http://localhost", False)
         finally:
             _server_mod.logger.removeHandler(handler)
             _server_mod.logger.setLevel(old_level)
 
-        all_output = " ".join(captured).lower()
-        assert any(
-            keyword in all_output
-            for keyword in ("scope", "idp", "upstream", "delegat")
-        ), (
-            f"Expected a log message mentioning scope delegation to upstream IdP, "
-            f"but got: {captured!r}"
+        warning_messages = [msg for level, msg in captured if level == logging.WARNING]
+        all_output = " ".join(warning_messages).lower()
+
+        # Must be a WARNING (not just INFO)
+        assert warning_messages, (
+            f"Expected a WARNING log about scope delegation, but no WARNING was emitted. "
+            f"All captured: {captured!r}"
+        )
+        # Must mention scopes and the per-flow enforcement constraint
+        assert any(keyword in all_output for keyword in ("scope", "idp", "upstream", "delegat")), (
+            f"Expected WARNING to mention scope delegation to upstream IdP, got: {warning_messages!r}"
+        )
+        assert any(keyword in all_output for keyword in ("per-request", "authorization flow", "per-authorization", "not per-request")), (
+            f"Expected WARNING to explicitly state enforcement is per-authorization-flow only, "
+            f"not per-request. Got: {warning_messages!r}"
         )

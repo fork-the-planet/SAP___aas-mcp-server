@@ -133,6 +133,27 @@ components:
 # OAuth Authorization Server itself, proxying the PKCE flow to the upstream IdP
 # using pre-registered server-side credentials. This works with any OIDC IdP.
 #
+# SCOPE ENFORCEMENT CHANGE (important if you used OAUTH_REQUIRED_SCOPES):
+#
+#   Previous behaviour (JWTVerifier-based):
+#     OAUTH_REQUIRED_SCOPES was enforced on EVERY inbound request — the server
+#     rejected tokens that did not carry the required scopes.
+#
+#   Current behaviour (OIDCProxy-based):
+#     OAUTH_REQUIRED_SCOPES is enforced PER-AUTHORIZATION-FLOW ONLY, not
+#     per-request. The scopes are requested from the upstream IdP during the
+#     PKCE flow; the IdP refuses authorization to users who do not hold them.
+#     FastMCP-issued tokens are NOT re-checked for scopes on every request
+#     because MCP clients register via DCR without declaring scopes, meaning
+#     FastMCP tokens carry an empty scope list by design.
+#
+#     The server emits a WARNING at startup when OAUTH_REQUIRED_SCOPES is set
+#     to make this behaviour visible in logs.
+#
+#     If you require per-request scope enforcement at the MCP boundary, consider
+#     implementing a custom TokenVerifier and passing it via the token_verifier
+#     parameter, or enforce scopes at the backend API layer instead.
+#
 # =============================================================================
 # Environment Variables — OAuth 2.1 Authorization (HTTP transports only)
 # =============================================================================

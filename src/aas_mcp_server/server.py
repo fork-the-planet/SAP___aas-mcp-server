@@ -32,6 +32,9 @@ so the server can advertise the correct public callback URL to the upstream IdP.
 import logging
 import math
 import os
+from contextlib import asynccontextmanager
+from functools import partial
+from typing import AsyncIterator
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import OIDCProxy
@@ -41,7 +44,7 @@ from key_value.aio.stores.memory import MemoryStore
 from .config import ComponentConfig
 from .spec_processor import process_component_spec
 from .schema_flattener import flatten_spec_schemas
-from .backend_auth import build_backend_token_provider
+from .backend_auth import BackendTokenProvider, build_backend_token_provider
 from .http_client import build_async_client
 from .tool_curation import curate_openapi_spec, prune_unused_schemas
 from .logging import configure_logging
@@ -65,6 +68,24 @@ from .constants import (
 logger = logging.getLogger(__name__)
 
 HTTP_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
+
+
+@asynccontextmanager
+async def _provider_lifespan(
+    server: FastMCP,  # noqa: ARG001 — required by FastMCP lifespan protocol
+    provider: BackendTokenProvider,
+) -> AsyncIterator[None]:
+    """Lifespan context manager that closes the backend token provider on shutdown.
+
+    Only providers that implement ``aclose()`` (currently TokenExchangeStrategy)
+    need cleanup; all others are no-ops.
+    """
+    try:
+        yield
+    finally:
+        aclose = getattr(provider, "aclose", None)
+        if callable(aclose):
+            await aclose()
 
 
 def _parse_positive_int(env_var: str, default: int) -> int:
@@ -274,12 +295,16 @@ def build_mcp_server(
     # enforcement point for this architecture.
     scopes_raw = os.getenv(ENV_OAUTH_REQUIRED_SCOPES)
     if scopes_raw and scopes_raw.strip():
-        logger.info(
-            "OAUTH_REQUIRED_SCOPES is set (%s). Scope enforcement is delegated to the "
-            "upstream IdP: these scopes are requested during the PKCE authorization flow "
-            "and the IdP will only authorize users who hold them. FastMCP-issued tokens "
-            "are not re-validated for scopes because MCP clients register via DCR without "
-            "declaring scopes.",
+        logger.warning(
+            "OAUTH_REQUIRED_SCOPES is set (%s). "
+            "Scope enforcement is per-authorization-flow only, not per-request: "
+            "these scopes are requested from the upstream IdP during the PKCE "
+            "authorization flow and the IdP will only issue an authorization code "
+            "to users who hold them. FastMCP-issued tokens are NOT re-validated "
+            "for scopes on every request because MCP clients register via DCR "
+            "without declaring scopes, so FastMCP tokens carry an empty scope list. "
+            "Operators upgrading from a JWTVerifier-based setup should note that "
+            "per-request scope validation no longer occurs at the MCP boundary.",
             scopes_raw.strip(),
         )
 
@@ -318,6 +343,10 @@ def build_mcp_server(
     # Generate MCP server from OpenAPI.
     # mask_error_details=True prevents internal backend error messages (stack
     # traces, AAS backend URLs, internal hostnames) from leaking to MCP clients.
+    #
+    # lifespan: closes the backend token provider's connection pool on shutdown.
+    # Only TokenExchangeStrategy holds a long-lived httpx.AsyncClient that needs
+    # explicit cleanup; ForwardStrategy and NoneStrategy are stateless.
     mcp = FastMCP.from_openapi(
         openapi_spec=curated,
         client=client,
@@ -325,6 +354,7 @@ def build_mcp_server(
         auth=auth_provider,
         middleware=[rate_limiter],
         mask_error_details=True,
+        lifespan=partial(_provider_lifespan, provider=backend_token_provider),
     )
 
     return mcp

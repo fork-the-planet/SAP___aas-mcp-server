@@ -328,3 +328,45 @@ class TestBuildBackendTokenProvider:
         assert isinstance(provider, TokenExchangeStrategy)
         assert provider.client_id == "override-client-id"
         assert provider.client_secret == "override-secret"
+
+
+# ---------------------------------------------------------------------------
+# TokenExchangeStrategy.aclose()
+# ---------------------------------------------------------------------------
+
+class TestTokenExchangeStrategyClose:
+    @pytest.mark.asyncio
+    async def test_aclose_closes_http_client(self):
+        """aclose() must close the underlying httpx.AsyncClient."""
+        with patch("aas_mcp_server.backend_auth.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_cls.return_value = mock_client
+
+            strategy = TokenExchangeStrategy(
+                token_endpoint="https://idp.example.com/oauth/token",
+                client_id="cid",
+                client_secret="csec",
+                audience="aud",
+                scope=None,
+            )
+            await strategy.aclose()
+
+        mock_client.aclose.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_strategy_usable_as_async_context_manager(self):
+        """TokenExchangeStrategy can be used as an async context manager; __aexit__ calls aclose()."""
+        with patch("aas_mcp_server.backend_auth.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_cls.return_value = mock_client
+
+            async with TokenExchangeStrategy(
+                token_endpoint="https://idp.example.com/oauth/token",
+                client_id="cid",
+                client_secret="csec",
+                audience="aud",
+                scope=None,
+            ):
+                pass
+
+        mock_client.aclose.assert_awaited_once()
