@@ -210,8 +210,13 @@ def _discover_token_endpoint(issuer_url: str) -> str:
     field is absent — directing the operator to set BACKEND_AUTH_TOKEN_ENDPOINT.
     """
     base = issuer_url.rstrip("/")
-    if base.endswith("openid-configuration"):
-        base = base[: base.rfind("/.well-known")]
+    _well_known = "/.well-known/openid-configuration"
+    if base.endswith(_well_known):
+        base = base[: -len(_well_known)]
+    elif base.endswith("/openid-configuration"):
+        # Handle non-standard paths that end in openid-configuration without /.well-known
+        # Leave base as-is — the discovery URL will be constructed correctly below
+        pass
     discovery_url = f"{base}/.well-known/openid-configuration"
 
     try:
@@ -330,9 +335,18 @@ def build_backend_token_provider() -> BackendTokenProvider:
 
     scope = os.getenv(ENV_BACKEND_AUTH_SCOPE, "").strip() or None
 
+    from urllib.parse import urlparse, urlunparse
+    _parsed = urlparse(token_endpoint)
+    if not _parsed.scheme or not _parsed.hostname:
+        raise ValueError(
+            f"BACKEND_AUTH_TOKEN_ENDPOINT={token_endpoint!r} is not a valid URL. "
+            "Expected a full URL with scheme and host, e.g. https://idp.example.com/oauth2/token."
+        )
+    _safe_endpoint = urlunparse(_parsed._replace(netloc=_parsed.hostname + (f":{_parsed.port}" if _parsed.port else "")))
+
     logger.info(
         "Backend auth strategy: token_exchange (RFC 8693) — endpoint=%s audience=%s scope=%s",
-        token_endpoint,
+        _safe_endpoint,
         audience,
         scope or "<not set>",
     )

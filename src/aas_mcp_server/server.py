@@ -142,8 +142,6 @@ def _parse_positive_float(env_var: str, default: float) -> float:
 
 OIDC_CONFIG_SUFFIX = "/.well-known/openid-configuration"
 
-_SUPPORTED_STORE_SCHEMES = frozenset({"redis", "rediss", "postgresql", "postgres"})
-
 
 def _build_session_store(url: str, encryption_key: bytes) -> AsyncKeyValueProtocol:
     """Build an encrypted OAuth session store from a URL.
